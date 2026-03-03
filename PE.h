@@ -30,7 +30,7 @@ void pe_compute(struct PE* pe){
     for(int i = 0; i < 16; i++){
         temp += pe->ifm[i] * pe->weight[i];
     }
-    pe->out = temp;
+    pe->out += temp;
 }
 /*
     PE debug
@@ -51,25 +51,39 @@ void print_pe(struct PE *pe){
 }
 // ================== PE Array =================
 struct PE pe_array[16];
-void pe_load_all(struct PE (*pe_array)[16], int ifm_row_to_load, int w_row_to_load){
-    // Load IFM_BRAM
+
+void pe_array_compute(struct PE *pe_array){
     for(int i = 0; i < 16; i++){
-        pe_load()
+        pe_compute(&pe_array[i]);
     }
 }
-void pe_array_compute(struct PE (*pe_array)[16]){
+void pe_array_store(struct PE *pe_array, int bram_index){
     for(int i = 0; i < 16; i++){
-        pe_compute(pe_array[i]);
+        ACC_BRAM[bram_index][i] = pe_array[i].out;
     }
 }
-void pe_array_store(struct PE (*pe_array)[16], int bram_index){
+void pe_array_reset_acc(struct PE *pe_array){
     for(int i = 0; i < 16; i++){
-        ACC_BRAM[bram_index][i] = pe_array[i]->out;
+        pe_array[i].out = 0;
     }
 }
-void pe_array_reset_acc(struct PE (*pe_array)[16]){
+#define PARALLEL 16
+void pe_array_load_all(struct PE *pe_array, int ifm_row_to_load, int w_row_to_load){
     for(int i = 0; i < 16; i++){
-        pe_array[i]->out = 0;
+        pe_load(&pe_array[i], IFM_BRAM, ifm_row_to_load, w_brams[i], w_row_to_load);
     }
+}
+/*
+    Debug acc
+*/
+void print_acc_bram(int32_t (*bram)[16]){
+    for(int i = 0; i < 9; i++){
+        printf("%4d: ", i);
+        for(int j = 0; j < 16; j++){
+            printf("%4"PRId32" ", bram[i][j]);
+        }
+        printf("\n");
+    }
+    printf("....\n");
 }
 #endif

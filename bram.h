@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include "dram.h"
+#include "config.h"
 
 /*
     BRAM(2048 x 16 pixels(8 bits)(128 bits))
@@ -33,7 +34,7 @@ int8_t W13_BRAM[2048][16];
 int8_t W14_BRAM[2048][16];
 int8_t W15_BRAM[2048][16];
 
-int32_t ACC_BRAM[2048][16];
+int32_t ACC_BRAM[8192][16];
 int8_t (*w_brams[16])[16] = {
         W0_BRAM, W1_BRAM, W2_BRAM, W3_BRAM, W4_BRAM, W5_BRAM, W6_BRAM, W7_BRAM,
         W8_BRAM, W9_BRAM, W10_BRAM, W11_BRAM, W12_BRAM, W13_BRAM, W14_BRAM, W15_BRAM
@@ -77,6 +78,22 @@ void print_bram(int8_t (*bram)[16]){
     // }
     // printf("\n");
 
+}
+/*
+@brief Only for int32_t
+*/
+int print_bram_to_file(const char *file_name, int32_t (*bram)[16]){
+    FILE *f = fopen(file_name, "w");
+    if(f == NULL){
+        printf("[ERROR] Khong viet duoc bram vao file");
+        return SYS_ERROR;
+    }
+    for(int i = 0; i < 14 * 14 * 384 / 16; i++){
+        for(int j = 0; j < 16; j++){
+            fprintf(f, "%"PRId32"\n", bram[i][j]);
+        }
+    }
+    fclose(f);
 }
 
 // int main(){

@@ -2,44 +2,53 @@
 #include "dram.h"
 #include "bram.h"
 #include "PE.h"
-void load_all_weights(int8_t *dram){
-    int8_t (*w_brams[16])[16] = {
-        W0_BRAM, W1_BRAM, W2_BRAM, W3_BRAM, W4_BRAM, W5_BRAM, W6_BRAM, W7_BRAM,
-        W8_BRAM, W9_BRAM, W10_BRAM, W11_BRAM, W12_BRAM, W13_BRAM, W14_BRAM, W15_BRAM
-    };
-    int start_addr = 18816;
-    
-    // We have 384 Output Channels (Filters)
-    // Each Filter has 96 Input Channels (depth)
-    // 96 bytes / 16 bytes-per-row = 6 rows per filter
-    int rows_per_filter = 6;
-    int num_filters = 384; 
 
-    for (int f = 0; f < num_filters; f++) {
-        int bram_index = f % 16;
-        int bram_row_offset = (f / 16) * rows_per_filter;
-        
-        for (int r = 0; r < rows_per_filter; r++) {
-             // Calculate DRAM address assuming Filters are stored sequentially
-             int dram_offset = start_addr + (f * rows_per_filter + r) * 16;
-             load_bram(dram, dram_offset, 16, w_brams[bram_index], bram_row_offset + r);
-        }
-    }
-}
 
 int main(){
+    // ============= Load to dram ==============
     if(init_dram("test/dram.txt", DRAM) == SYS_OK){
         printf("[LOGS] Read file successfully\n");
     }
-    print_dram(DRAM);
+    // print_dram(DRAM);
     
-    // Load IFM_BRAM
-    for(int i = 0; i < 1176; i++){
+    // ============== Load IFM_BRAM and weight bram ================
+    for(int i = 0; i < H_in * W_in * C_IN / BRAM_WIDTH_IN_BYTE; i++){ // i - số hàng BRAM
         load_bram(DRAM, i * 16, 16, IFM_BRAM, i);
     }
-    // Write me a function to load all the weight the each bram here
-    load_all_weights(DRAM);
-    for(int i = 0; i < 16; i++){
-        print_bram(w_brams[i]);
+    int dem = 0;
+    uint16_t counter = 1;
+    while(counter != 0){
+        for(int i = 0; i < C_OUT / PARALLEL; i++){ // w thứ i thuộc cùng 1 BRAM
+            for(int fake_row = 0; fake_row < C_IN / PARALLEL; fake_row++){// coi như load vào một cái BRAM mới
+                int addr_dram = (H_in * W_in * C_IN) + ((i * PARALLEL + dem) * C_IN) + (fake_row * 16);
+                load_bram(DRAM, addr_dram, 16, w_brams[dem], i * C_IN / PARALLEL + fake_row);
+            }
+        }
+        dem++;
+        counter = counter << 1;
     }
+    // print_bram(IFM_BRAM);
+    // for(int i = 0; i < 16; i++){
+    //     print_bram(w_brams[i]);
+    // }
+    
+    // Vòng for tính output
+    // Tính theo chiều ngang
+    for(int co = 0; co < C_OUT / PARALLEL; co++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần
+        for(int ho = 0; ho < H_out; ho++){
+            for(int wo = 0; wo < W_out; wo++){
+                pe_array_reset_acc(pe_array);
+                // C_IN / PARALLEL số lần load để tính 1 kênh = số hàng 1 weght = số hàng của 1 pixel theo độ sâu
+                int ifm_row_start = ho * W_in * C_IN / PARALLEL + wo * C_IN / PARALLEL;
+                int w_row_start = co * C_IN / PARALLEL;
+                for(int i = 0; i < C_IN / PARALLEL; i++){
+                    pe_array_load_all(pe_array, ifm_row_start + i, w_row_start + i);
+                    pe_array_compute(pe_array);
+                }
+                int acc_row = ((ho * W_out + wo) * (C_OUT / PARALLEL)) + co;
+                pe_array_store(pe_array, acc_row);
+            }
+        }
+    }
+    print_bram_to_file("output/acc.txt", ACC_BRAM);
 }
