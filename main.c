@@ -2,6 +2,7 @@
 #include "dram.h"
 #include "bram.h"
 #include "PE.h"
+#include <stdint.h>
 
 
 int main(){
@@ -15,16 +16,16 @@ int main(){
     for(int i = 0; i < H_in * W_in * C_IN / BRAM_WIDTH_IN_BYTE; i++){ // i - số hàng BRAM
         load_bram(DRAM, i * 16, 16, IFM_BRAM, i);
     }
-    int dem = 0;
     uint16_t counter = 1;
     while(counter != 0){
+        int dem = __builtin_ctz(counter); // 
         for(int i = 0; i < C_OUT / PARALLEL; i++){ // w thứ i thuộc cùng 1 BRAM
             for(int fake_row = 0; fake_row < C_IN / PARALLEL; fake_row++){// coi như load vào một cái BRAM mới
                 int addr_dram = (H_in * W_in * C_IN) + ((i * PARALLEL + dem) * C_IN) + (fake_row * 16);
                 load_bram(DRAM, addr_dram, 16, w_brams[dem], i * C_IN / PARALLEL + fake_row);
             }
         }
-        dem++;
+        
         counter = counter << 1;
     }
     // print_bram(IFM_BRAM);

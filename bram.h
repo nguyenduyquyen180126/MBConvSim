@@ -94,6 +94,8 @@ int print_bram_to_file(const char *file_name, int32_t (*bram)[16]){
         }
     }
     fclose(f);
+    printf("[LOGS] Viet thanh cong");
+    return SYS_OK;
 }
 
 // int main(){
