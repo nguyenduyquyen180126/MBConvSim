@@ -11,10 +11,7 @@
     BRAM(2048 x 16 pixels(8 bits)(128 bits))
     DMA bitwidths is 128 bits
 */
-#define DMA_BW 128
-#define BRAM_WIDTH_IN_BIT 128
-#define BRAM_WIDTH_IN_BYTE 16
-#define PIXEL_DAT_SIZE 8
+
 
 int8_t IFM_BRAM[2048][16];
 int8_t W0_BRAM[2048][16];
