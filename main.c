@@ -18,10 +18,10 @@ int main(){
     }
     uint16_t counter = 1;
     while(counter != 0){
-        int dem = __builtin_ctz(counter); // 
+        int dem = __builtin_ctz(counter); // Đếm số bit không đầu tiên để biết load BRAM thứ mấy
         for(int i = 0; i < C_OUT / PARALLEL; i++){ // w thứ i thuộc cùng 1 BRAM
             for(int fake_row = 0; fake_row < C_IN / PARALLEL; fake_row++){// coi như load vào một cái BRAM mới
-                int addr_dram = (H_in * W_in * C_IN) + ((i * PARALLEL + dem) * C_IN) + (fake_row * 16);
+                int addr_dram = (H_in * W_in * C_IN) + ((i * NUM_OF_PE + dem) * C_IN) + (fake_row * 16);
                 load_bram(DRAM, addr_dram, 16, w_brams[dem], i * C_IN / PARALLEL + fake_row);
             }
         }

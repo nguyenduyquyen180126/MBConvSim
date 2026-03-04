@@ -12,10 +12,12 @@ enum status_t{
 #define C_IN 96
 #define C_OUT 384
 #define PARALLEL 16
+#define NUM_OF_PE 16
 #define H_in 14
 #define W_in 14
 #define H_out 14
 #define W_out 14
+#define KERNEL_SIZE 96
 
 
 #endif
