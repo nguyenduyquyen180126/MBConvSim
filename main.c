@@ -15,7 +15,7 @@ int main(){
     
     // ============== Load IFM_BRAM and weight bram ================
     for(int i = 0; i < H_in * W_in * C_IN / BRAM_WIDTH_IN_BYTE; i++){ // i - số hàng BRAM
-        load_bram(DRAM, i * 16, 16, IFM_BRAM, i);
+        load_bram(DRAM, i * BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, IFM_BRAM, i);
     }
     uint16_t counter = 1;
     while(counter != 0){
