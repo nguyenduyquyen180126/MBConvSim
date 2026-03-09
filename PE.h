@@ -7,8 +7,8 @@
 #include <string.h>
 #include "bram.h"
 #include "config.h"
-// ============== PE ===============
-struct PE{
+// ================= 1. PE của depthwise conv ===================
+struct PWCONV_PE{
     int8_t ifm[16];
     int8_t weight[16];
     int32_t out;
@@ -18,7 +18,7 @@ struct PE{
 @param[in] ifm_bram_row Hàng để đọc dữ liệu từ bram
 @param[in] w_row Hàng đọc dữ liêu từ bram
 */
-void pe_load(struct PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_t (*weight_bram)[16], int w_row){
+void pw_pe_load(struct PWCONV_PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_t (*weight_bram)[16], int w_row){
     /*
         Copy ifm
         Copy weight
@@ -33,7 +33,7 @@ void pe_load(struct PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_t (*weight
 //     }
 //     pe->out += temp;
 // }
-void pe_compute(struct PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_t (*weight_bram)[16], int w_row){
+void pw_pe_compute(struct PWCONV_PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_t (*weight_bram)[16], int w_row){
     memcpy(pe->ifm, ifm_bram + ifm_row, BRAM_WIDTH_IN_BYTE);
     memcpy(pe->weight, weight_bram + w_row, BRAM_WIDTH_IN_BYTE);
     int32_t temp = 0;
@@ -41,12 +41,12 @@ void pe_compute(struct PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_t (*wei
         temp += pe->ifm[i] * pe->weight[i];
     }
     pe->out += temp;
-
+    
 }
 /*
     PE debug
 */
-void print_pe(struct PE *pe){
+void pw_pe_print(struct PWCONV_PE *pe){
     printf("ifm:\n");
     for(int i = 0; i < 16; i++){
         printf("%4"PRId8" ", pe->ifm[i]);
@@ -61,26 +61,16 @@ void print_pe(struct PE *pe){
     printf("%"PRId32" ", pe->out);
 }
 // ================== PE Array =================
-struct PE pe_array[16];
+struct PWCONV_PE pw_pe_array[16];
 
-// void pe_array_compute(struct PE *pe_array){
-//     for(int i = 0; i < 16; i++){
-//         pe_compute(&pe_array[i]);
-//     }
-// }
-void pe_array_store(struct PE *pe_array, int bram_index){
+void pw_pe_array_store(struct PWCONV_PE *pe_array, int bram_index){
     for(int i = 0; i < 16; i++){
-        ACC_BRAM[bram_index][i] = pe_array[i].out;
+        PWCONV_ACC_BRAM[bram_index][i] = pe_array[i].out;
     }
 }
-void pe_array_reset_acc(struct PE *pe_array){
+void pw_pe_array_reset_acc(struct PWCONV_PE *pe_array){
     for(int i = 0; i < 16; i++){
         pe_array[i].out = 0;
-    }
-}
-void pe_array_load_all(struct PE *pe_array, int ifm_row_to_load, int w_row_to_load){
-    for(int i = 0; i < 16; i++){
-        pe_load(&pe_array[i], IFM_BRAM, ifm_row_to_load, w_brams[i], w_row_to_load);
     }
 }
 /*
@@ -95,5 +85,27 @@ void print_acc_bram(int32_t (*bram)[16]){
         printf("\n");
     }
     printf("....\n");
+}
+// =================== 2. PE của depthwise =================
+struct DW_PE{
+    int8_t ifm;
+    int8_t weight;
+    int32_t acc;
+};
+void dw_pe_compute(struct DW_PE *pe, int8_t ifm, int8_t weight){
+    pe->acc += ifm * weight;
+}
+
+
+struct DW_PE dw_pe_arr[16];
+void dw_pe_arr_reset(){
+    for(int i = 0; i < 16; i++){
+        dw_pe_arr[i].acc = 0;
+    }
+}
+void dw_pe_arr_store(struct DW_PE *pe_array, int acc_row_addr){
+    for(int i = 0; i < 16; i++){
+        DW_ACC_BRAM[acc_row_addr][i] = pe_array[i].acc;
+    }
 }
 #endif

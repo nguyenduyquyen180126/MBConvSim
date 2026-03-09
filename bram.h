@@ -7,36 +7,44 @@
 #include "dram.h"
 #include "config.h"
 
+// =========================== 1. BRAM của PWConv ================================
 /*
     BRAM(2048 x 16 pixels(8 bits)(128 bits))
     DMA bitwidths is 128 bits
 */
 
 
-int8_t IFM_BRAM[2048][16];
-int8_t W0_BRAM[2048][16];
-int8_t W1_BRAM[2048][16];
-int8_t W2_BRAM[2048][16];
-int8_t W3_BRAM[2048][16];
-int8_t W4_BRAM[2048][16];
-int8_t W5_BRAM[2048][16];
-int8_t W6_BRAM[2048][16];
-int8_t W7_BRAM[2048][16];
-int8_t W8_BRAM[2048][16];
-int8_t W9_BRAM[2048][16];
-int8_t W10_BRAM[2048][16];
-int8_t W11_BRAM[2048][16];
-int8_t W12_BRAM[2048][16];
-int8_t W13_BRAM[2048][16];
-int8_t W14_BRAM[2048][16];
-int8_t W15_BRAM[2048][16];
+int8_t PWCONV_IFM_BRAM[2048][16];
+int8_t PWCONV_W0_BRAM[2048][16];
+int8_t PWCONV_W1_BRAM[2048][16];
+int8_t PWCONV_W2_BRAM[2048][16];
+int8_t PWCONV_W3_BRAM[2048][16];
+int8_t PWCONV_W4_BRAM[2048][16];
+int8_t PWCONV_W5_BRAM[2048][16];
+int8_t PWCONV_W6_BRAM[2048][16];
+int8_t PWCONV_W7_BRAM[2048][16];
+int8_t PWCONV_W8_BRAM[2048][16];
+int8_t PWCONV_W9_BRAM[2048][16];
+int8_t PWCONV_W10_BRAM[2048][16];
+int8_t PWCONV_W11_BRAM[2048][16];
+int8_t PWCONV_W12_BRAM[2048][16];
+int8_t PWCONV_W13_BRAM[2048][16];
+int8_t PWCONV_W14_BRAM[2048][16];
+int8_t PWCONV_W15_BRAM[2048][16];
 
-int32_t ACC_BRAM[8192][16];
-int8_t (*w_brams[16])[16] = {
-        W0_BRAM, W1_BRAM, W2_BRAM, W3_BRAM, W4_BRAM, W5_BRAM, W6_BRAM, W7_BRAM,
-        W8_BRAM, W9_BRAM, W10_BRAM, W11_BRAM, W12_BRAM, W13_BRAM, W14_BRAM, W15_BRAM
+int32_t PWCONV_ACC_BRAM[8192][16];
+int8_t (*pwconv_w_brams[16])[16] = {
+        PWCONV_W0_BRAM, PWCONV_W1_BRAM, PWCONV_W2_BRAM, PWCONV_W3_BRAM, PWCONV_W4_BRAM, PWCONV_W5_BRAM, PWCONV_W6_BRAM, PWCONV_W7_BRAM,
+        PWCONV_W8_BRAM, PWCONV_W9_BRAM, PWCONV_W10_BRAM, PWCONV_W11_BRAM, PWCONV_W12_BRAM, PWCONV_W13_BRAM, PWCONV_W14_BRAM, PWCONV_W15_BRAM
     };
 
+
+// ============================== 2. BRAM của DWConv ===============================
+int8_t DW_IFM_BRAM[8192][16];
+int8_t DW_W_BRAM[2048][16];
+int32_t DW_ACC_BRAM[8192][16];
+
+// ============================== 3. Helper function for bram ====================================
 /*
 @brief Hàm mô phòng việc load từ DRAM vào BRAM bằng DMA.
 @param[in] dram Tên dram
@@ -65,7 +73,7 @@ void print_bram(int8_t (*bram)[16]){
         }
         printf("\n");
     }
-    printf("....\n");
+    // printf("....\n");
     // for(int i = 2045; i < 2048; i++){
     //     printf("%4d: ", i);
     //     for(int j = 0; j < 16; j++){
@@ -73,19 +81,19 @@ void print_bram(int8_t (*bram)[16]){
     //     }
     //     printf("\n");
     // }
-    // printf("\n");
+    printf("\n");
 
 }
 /*
 @brief Only for int32_t
 */
-int print_bram_to_file(const char *file_name, int32_t (*bram)[16]){
+int print_bram_to_file(const char *file_name, int32_t (*bram)[16], int num_of_row){
     FILE *f = fopen(file_name, "w");
     if(f == NULL){
         printf("[ERROR] Khong viet duoc bram vao file");
         return SYS_ERROR;
     }
-    for(int i = 0; i < 14 * 14 * 384 / 16; i++){
+    for(int i = 0; i < num_of_row; i++){
         for(int j = 0; j < 16; j++){
             fprintf(f, "%"PRId32"\n", bram[i][j]);
         }
@@ -94,7 +102,18 @@ int print_bram_to_file(const char *file_name, int32_t (*bram)[16]){
     printf("[LOGS] Viet thanh cong");
     return SYS_OK;
 }
-
+int print_bram_to_file_int8(const char *file_name, int8_t (*bram)[16], int width, int depth){
+    FILE *f = fopen(file_name, "w");
+    if(f == NULL){
+        printf("[ERROR] Khong viet duoc bram vao file");
+        return SYS_ERROR;
+    }
+    for(int i = 0; i < depth; i++){
+        for(int j = 0; j < width; j++){
+            fprintf(f, "%"PRId8"\n", bram[i][j]);
+        }
+    }
+}
 // int main(){
 //     if(init_dram("ifm.txt", DRAM) == SYS_OK){
 //         printf("[LOGS] Read file successfully\n");

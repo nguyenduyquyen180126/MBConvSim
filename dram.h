@@ -21,7 +21,7 @@ int init_dram(const char *file_name, int8_t *dram){
     }
     int temp = 0, i = 0;
     while(fscanf(fptr, "%" SCNd8, &temp) == 1){
-        DRAM[i] = temp;
+        dram[i] = temp;
         i++;
     }
     fclose(fptr);
