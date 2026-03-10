@@ -61,6 +61,7 @@ int main(){
                 int w_row_indx = tile * row_need_for_one_filter;
                 
                 
+                
                 for(int i = 0; i < PW_FILTER_SIZE / NUM_OF_PE; i++){
                     pw_pe_compute(&pw_pe_array[0], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W0_BRAM, w_row_indx + i);
                     pw_pe_compute(&pw_pe_array[1], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W1_BRAM, w_row_indx + i);
@@ -102,14 +103,15 @@ int main(){
     
     // ==================== Load depthwise weight ================ 
     // Tạm thời tạo 1 dram để load ?? 
-    int8_t dw_weight_dram[5000];
-    if (init_dram("test/w_3_3_384.txt", dw_weight_dram) == SYS_OK){
-        printf("[LOGS] Doc file thanh cong\n");
-    }
+    // int8_t dw_weight_dram[5000];
+    // if (init_dram("test/w_3_3_384.txt", dw_weight_dram) == SYS_OK){
+    //     printf("[LOGS] Doc file thanh cong\n");
+    // }
     
     // =================== Sắp xếp weight vào bram ===============
+    int dw_start_addr = 14 * 14 * 96 + 384 * 96;
     for(int i = 0; i < 3*3*384 / BRAM_WIDTH_IN_BYTE; i++){
-        load_bram(dw_weight_dram, i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
+        load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
     }
     // =================== Tinh padding ================
     int total_pad_i = (DW_H_OUT - 1) * DW_STRIDE + DW_H_K - DW_H_IN;
