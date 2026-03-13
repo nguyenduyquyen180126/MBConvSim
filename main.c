@@ -28,7 +28,7 @@ int main(){
     printf("[LOGS] IFM BRAM Loaded.\n");
 
     // Nap san du lieu vao w bram de tinh duoc tile dau
-    printf("[LOGS] Loading Weight BRAMs...\n");
+    printf("[LOGS] Loading PW Weight BRAMs...\n");
     uint16_t write_enable_weight = 1;
     while(write_enable_weight != 0){ // Vòng for ngoài cùng duyệt các BRAM
         int bram_indx = __builtin_ctz(write_enable_weight);// Load BRAM thứ mấy
@@ -44,10 +44,13 @@ int main(){
     // print_bram(PWCONV_W1_BRAM);
     // print_bram(PWCONV_W2_BRAM);
 
-    printf("[LOGS] Weight BRAMs Loaded.\n");
+    printf("[LOGS] PW Weight BRAMs Loaded.\n");
 
 
-    printf("[LOGS] Starting PW computation loops\n");
+
+    printf("[LOGS] Starting PW-DW computation loops\n");
+
+    int count = 0;
 
     for(int tile = 0; tile < PW_NUM_OF_FILTER / NUM_OF_PE; tile++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần.
         for(int ho = 0; ho < PW_H_out; ho++){
@@ -277,7 +280,6 @@ int main(){
         pong_state = 1 - pong_state;
     }
     printf("[LOGS] PWConv Done.\n");
-    fflush(stdout);
 
     print_bram_to_file("output/acc.txt", PWCONV_ACC_BRAM, 14 * 14 * 384 / 16);
     // =============== Chuyển từ int32_t sang int8_t bằng cách lấy 8 bit đầu ==================
@@ -294,20 +296,10 @@ int main(){
     // print_bram_to_file_int8("test/dw_ifm.txt", DW_IFM_BRAM, BRAM_WIDTH_IN_BYTE, PW_H_out * PW_W_out * PW_C_OUT / BRAM_WIDTH_IN_BYTE);
     // ========================= 2. Mô phỏng depthwise conv =====================
     printf("[LOGS] Loading DW Weight BRAM...\n");
-    // =================== Load truoc du weight de tinh cho 1 pixel tile =========================
     int dw_start_addr = 14 * 14 * 96 + 384 * 96;
     for(int i = 0; i < 3*3*384 / BRAM_WIDTH_IN_BYTE; i++){
         load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
     }
-
-    // =================== Kich thuoc padding ===============
-    int total_pad_i = (DW_H_OUT - 1) * DW_STRIDE + DW_H_K - DW_H_IN;
-    int pad_top = total_pad_i / 2;
-    int pad_bot = total_pad_i - pad_top;
-
-    int total_pad_j = (DW_W_OUT - 1) * DW_STRIDE + DW_W_K - DW_W_IN;
-    int pad_left = total_pad_j / 2;
-    int pad_right = total_pad_j - pad_left;
 
     // =================== Vòng for tính toán ====================
     printf("[LOGS] Starting DWConv computation...\n");
