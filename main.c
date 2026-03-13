@@ -127,7 +127,7 @@ int main(){
         for(int ho = 0; ho < DW_H_OUT; ho++){
             for(int wo = 0; wo < DW_W_OUT; wo++){
                 dw_pe_arr_reset();
-
+                
                 for(int i = 0; i  < DW_H_K * DW_W_K; i++){
                     int k_i = i / DW_W_K;
                     int k_j = i % DW_W_K;
