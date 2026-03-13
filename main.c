@@ -50,6 +50,7 @@ int main(){
     for(int tile = 0; tile < PW_NUM_OF_FILTER / NUM_OF_PE; tile++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần.
         for(int ho = 0; ho < PW_H_out; ho++){
             for(int wo = 0; wo < PW_W_out; wo++){
+
                 pw_pe_array_reset_acc(pw_pe_array);
                 int row_needed_for_one_pixel_depth = PW_C_IN / BRAM_WIDTH_IN_BYTE; // Một vector 1x1xC_in.
                 int ifm_row_indx = (ho * PW_W_in + wo) * row_needed_for_one_pixel_depth;
@@ -57,8 +58,8 @@ int main(){
                 int w_row_indx = (ping_state == READ) ? ping_start_row : pong_start_row;
                 int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
 
-                // Khong phai chu ky cuoi
-                if(ho < PW_H_out - 1 && wo < PW_W_out - 1){
+                // Khong phai chu ky dau
+                if(ho != 0 || wo != 0){
                     for(int i = 0; i < PW_FILTER_SIZE / NUM_OF_PE; i++){
                         pw_pe_compute(&pw_pe_array[0], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W0_BRAM, w_row_indx + i);
                         pw_pe_compute(&pw_pe_array[1], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W1_BRAM, w_row_indx + i);
@@ -84,9 +85,9 @@ int main(){
                     pw_pe_array_store(pw_pe_array, acc_row);
                 }
                 
-                // Chu ky tinh cuoi cua tile vua load vao BRAM vua tinh
-                if(ho == PW_H_out - 1 && wo == PW_W_out - 1){
-                   
+                // Chu ky dau
+                if(ho == 0 && wo == 0){
+                    
                     int dram_start_addr = PW_WEIGHT_START_ADDR + (tile + 1) * PW_FILTER_SIZE * NUM_OF_PE; // Dia chi bat dau ghi de nap 
                     for(int i = 0; i < PW_FILTER_SIZE / NUM_OF_PE; i++){
                         pw_pe_compute(&pw_pe_array[0], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W0_BRAM, w_row_indx + i);
