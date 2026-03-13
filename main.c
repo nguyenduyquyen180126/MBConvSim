@@ -294,7 +294,6 @@ int main(){
     // print_bram_to_file_int8("test/dw_ifm.txt", DW_IFM_BRAM, BRAM_WIDTH_IN_BYTE, PW_H_out * PW_W_out * PW_C_OUT / BRAM_WIDTH_IN_BYTE);
     // ========================= 2. Mô phỏng depthwise conv =====================
     printf("[LOGS] Loading DW Weight BRAM...\n");
-    // =================== Load truoc du weight de tinh cho 1 pixel tile =========================
     int dw_start_addr = 14 * 14 * 96 + 384 * 96;
     for(int i = 0; i < 3*3*384 / BRAM_WIDTH_IN_BYTE; i++){
         load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
