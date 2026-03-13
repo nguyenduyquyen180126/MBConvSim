@@ -20,8 +20,8 @@ int init_dram(const char *file_name, int8_t *dram){
         return SYS_INVALID_ARG;
     }
     int temp = 0, i = 0;
-    while(fscanf(fptr, "%" SCNd8, &temp) == 1){
-        dram[i] = temp;
+    while(fscanf(fptr, "%d", &temp) == 1){
+        dram[i] = (int8_t)temp;
         i++;
     }
     fclose(fptr);

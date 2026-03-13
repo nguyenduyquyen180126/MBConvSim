@@ -7,30 +7,38 @@
 #include "dram.h"
 #include "config.h"
 
+// ========================== Ping pong config ===========================
+enum BRAM_STATE{
+    WRITE,
+    READ
+};
+int ping_state = READ;
+int pong_state = WRITE;
+int ping_start_row = 0;
+int pong_start_row = 1175;
 // =========================== 1. BRAM của PWConv ================================
 /*
-    BRAM(2048 x 16 pixels(8 bits)(128 bits))
+    BRAM(2352 x 16 pixels(8 bits)(128 bits))
     DMA bitwidths is 128 bits
 */
 
-
-int8_t PWCONV_IFM_BRAM[2048][16];
-int8_t PWCONV_W0_BRAM[2048][16];
-int8_t PWCONV_W1_BRAM[2048][16];
-int8_t PWCONV_W2_BRAM[2048][16];
-int8_t PWCONV_W3_BRAM[2048][16];
-int8_t PWCONV_W4_BRAM[2048][16];
-int8_t PWCONV_W5_BRAM[2048][16];
-int8_t PWCONV_W6_BRAM[2048][16];
-int8_t PWCONV_W7_BRAM[2048][16];
-int8_t PWCONV_W8_BRAM[2048][16];
-int8_t PWCONV_W9_BRAM[2048][16];
-int8_t PWCONV_W10_BRAM[2048][16];
-int8_t PWCONV_W11_BRAM[2048][16];
-int8_t PWCONV_W12_BRAM[2048][16];
-int8_t PWCONV_W13_BRAM[2048][16];
-int8_t PWCONV_W14_BRAM[2048][16];
-int8_t PWCONV_W15_BRAM[2048][16];
+int8_t PWCONV_IFM_BRAM[8192][16];
+int8_t PWCONV_W0_BRAM[2352][16];
+int8_t PWCONV_W1_BRAM[2352][16];
+int8_t PWCONV_W2_BRAM[2352][16];
+int8_t PWCONV_W3_BRAM[2352][16];
+int8_t PWCONV_W4_BRAM[2352][16];
+int8_t PWCONV_W5_BRAM[2352][16];
+int8_t PWCONV_W6_BRAM[2352][16];
+int8_t PWCONV_W7_BRAM[2352][16];
+int8_t PWCONV_W8_BRAM[2352][16];
+int8_t PWCONV_W9_BRAM[2352][16];
+int8_t PWCONV_W10_BRAM[2352][16];
+int8_t PWCONV_W11_BRAM[2352][16];
+int8_t PWCONV_W12_BRAM[2352][16];
+int8_t PWCONV_W13_BRAM[2352][16];
+int8_t PWCONV_W14_BRAM[2352][16];
+int8_t PWCONV_W15_BRAM[2352][16];
 
 int32_t PWCONV_ACC_BRAM[8192][16];
 int8_t (*pwconv_w_brams[16])[16] = {
@@ -41,7 +49,7 @@ int8_t (*pwconv_w_brams[16])[16] = {
 
 // ============================== 2. BRAM của DWConv ===============================
 int8_t DW_IFM_BRAM[8192][16];
-int8_t DW_W_BRAM[2048][16];
+int8_t DW_W_BRAM[2352][16];
 int32_t DW_ACC_BRAM[8192][16];
 
 // ============================== 3. Helper function for bram ====================================
@@ -63,6 +71,10 @@ int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram
     return 1;
 }
 /*
+    Double buffering BRAM
+*/
+
+/*
 @brief Debug purpose funtion
 */
 void print_bram(int8_t (*bram)[16]){
@@ -74,7 +86,7 @@ void print_bram(int8_t (*bram)[16]){
         printf("\n");
     }
     // printf("....\n");
-    // for(int i = 2045; i < 2048; i++){
+    // for(int i = 2045; i < 2352; i++){
     //     printf("%4d: ", i);
     //     for(int j = 0; j < 16; j++){
     //         printf("%4"PRId8" ", bram[i][j]);
@@ -90,7 +102,7 @@ void print_bram(int8_t (*bram)[16]){
 int print_bram_to_file(const char *file_name, int32_t (*bram)[16], int num_of_row){
     FILE *f = fopen(file_name, "w");
     if(f == NULL){
-        printf("[ERROR] Khong viet duoc bram vao file");
+        printf("[ERROR] Khong viet duoc bram vao file\n");
         return SYS_ERROR;
     }
     for(int i = 0; i < num_of_row; i++){
@@ -99,13 +111,13 @@ int print_bram_to_file(const char *file_name, int32_t (*bram)[16], int num_of_ro
         }
     }
     fclose(f);
-    printf("[LOGS] Viet thanh cong");
+    printf("[LOGS] Viet thanh cong\n");
     return SYS_OK;
 }
 int print_bram_to_file_int8(const char *file_name, int8_t (*bram)[16], int width, int depth){
     FILE *f = fopen(file_name, "w");
     if(f == NULL){
-        printf("[ERROR] Khong viet duoc bram vao file");
+        printf("[ERROR] Khong viet duoc bram vao file\n");
         return SYS_ERROR;
     }
     for(int i = 0; i < depth; i++){
@@ -113,13 +125,7 @@ int print_bram_to_file_int8(const char *file_name, int8_t (*bram)[16], int width
             fprintf(f, "%"PRId8"\n", bram[i][j]);
         }
     }
+    printf("[ERROR] Viet thanh cong bram vao file\n");
+    return SYS_OK;
 }
-// int main(){
-//     if(init_dram("ifm.txt", DRAM) == SYS_OK){
-//         printf("[LOGS] Read file successfully\n");
-//     }
-//     print_dram(DRAM);
-//     load_bram(DRAM, 0, PIXEL_DAT_SIZE * 16, IFM_BRAM, 6);
-//     print_bram(IFM_BRAM);
-// }
 #endif

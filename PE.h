@@ -33,6 +33,9 @@ void pw_pe_load(struct PWCONV_PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_
 //     }
 //     pe->out += temp;
 // }
+/*
+    Hàm load và tính các PE
+*/
 void pw_pe_compute(struct PWCONV_PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_t (*weight_bram)[16], int w_row){
     memcpy(pe->ifm, ifm_bram + ifm_row, BRAM_WIDTH_IN_BYTE);
     memcpy(pe->weight, weight_bram + w_row, BRAM_WIDTH_IN_BYTE);
