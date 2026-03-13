@@ -167,7 +167,10 @@ int main(){
     // ========================= 2. Mô phỏng depthwise conv =====================
     printf("[LOGS] Loading DW Weight BRAM...\n");
     // =================== Load truoc du weight de tinh cho 1 pixel tile =========================
-
+    int dw_start_addr = 14 * 14 * 96 + 384 * 96;
+    for(int i = 0; i < 3*3*384 / BRAM_WIDTH_IN_BYTE; i++){
+        load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
+    }
 
     // =================== Kich thuoc padding ===============
     int total_pad_i = (DW_H_OUT - 1) * DW_STRIDE + DW_H_K - DW_H_IN;
