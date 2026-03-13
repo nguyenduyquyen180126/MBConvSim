@@ -15,7 +15,7 @@ enum BRAM_STATE{
 int ping_state = READ;
 int pong_state = WRITE;
 int ping_start_row = 0;
-int pong_start_row = 1175;
+int pong_start_row = 1176;
 // =========================== 1. BRAM của PWConv ================================
 /*
     BRAM(2352 x 16 pixels(8 bits)(128 bits))
