@@ -20,14 +20,14 @@ int main(){
     }
     // print_dram(DRAM);
     
-    // ============== Load IFM_BRAM and weight bram ================
+    // ============== Load IFM_BRAM ================
     printf("[LOGS] Load IFM BRAM\n");
     for(int i = 0; i < PW_H_in * PW_W_in * PW_C_IN / BRAM_WIDTH_IN_BYTE; i++){ // i - số hàng BRAM
         load_bram(DRAM, i * BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, PWCONV_IFM_BRAM, i);
     }
     // print_bram(PWCONV_IFM_BRAM);
     printf("[LOGS] IFM BRAM Loaded.\n");
-
+    // ============== Load PW weight ================
     // Nap san du lieu vao w bram de tinh duoc tile dau
     printf("[LOGS] Loading PW Weight BRAMs...\n");
     uint16_t write_enable_weight = 1;
@@ -42,6 +42,7 @@ int main(){
     }
 
     printf("[LOGS] PW Weight BRAMs Loaded.\n");
+    // ================ Load DW weight ===============
     printf("[LOGS] Loading DW Weight BRAM...\n");
 
     int dw_start_addr = 14 * 14 * 96 + 384 * 96;
@@ -59,9 +60,9 @@ int main(){
     int pad_left = total_pad_j / 2;
     int pad_right = total_pad_j - pad_left;
 
-
+    // =================== Tinh pipeline ===================
     printf("[LOGS] Starting PW-DW pipeline computation loops...\n");    
-    volatile int pw_row_compete = 0;
+    int pw_row_compete = 0;
 
     #pragma omp parallel sections
     {
