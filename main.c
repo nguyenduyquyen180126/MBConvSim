@@ -216,6 +216,12 @@ int main(){
             }
             printf("[LOGS] DONE DW loop\n");
         }
+        #pragma omp section
+        {
+            printf("[LOGS] Starting Global Average Pooling ...\n");
+            
+            printf("[LOGS] Done global average pooling")
+        }
     }
     printf("[LOGS] ============ Done. =============\n");
     print_bram_32_bit(DW_ACC_BRAM);
