@@ -48,7 +48,6 @@ int8_t (*pwconv_w_brams[16])[16] = {
 
 
 // ============================== 2. BRAM của DWConv ===============================
-int8_t DW_IFM_BRAM[8192][16];
 int8_t DW_W_BRAM[2352][16];
 int32_t DW_ACC_BRAM[8192][16];
 
@@ -81,7 +80,7 @@ void print_bram(int8_t (*bram)[16]){
     for(int i = 0; i < 9; i++){
         printf("%4d: ", i);
         for(int j = 0; j < 16; j++){
-            printf("%4"PRId8" ", bram[i][j]);
+            printf("%4" PRId8 " ", bram[i][j]);
         }
         printf("\n");
     }
@@ -89,7 +88,26 @@ void print_bram(int8_t (*bram)[16]){
     // for(int i = 2045; i < 2352; i++){
     //     printf("%4d: ", i);
     //     for(int j = 0; j < 16; j++){
-    //         printf("%4"PRId8" ", bram[i][j]);
+    //         printf("%4" PRId32 " ", bram[i][j]);
+    //     }
+    //     printf("\n");
+    // }
+    printf("\n");
+
+}
+void print_bram_32_bit(int32_t (*bram)[16]){
+    for(int i = 0; i < 9; i++){
+        printf("%4d: ", i);
+        for(int j = 0; j < 16; j++){
+            printf("%4" PRId32 " ", bram[i][j]);
+        }
+        printf("\n");
+    }
+    // printf("....\n");
+    // for(int i = 2045; i < 2352; i++){
+    //     printf("%4d: ", i);
+    //     for(int j = 0; j < 16; j++){
+    //         printf("%4" PRId32 " ", bram[i][j]);
     //     }
     //     printf("\n");
     // }
@@ -107,7 +125,7 @@ int print_bram_to_file(const char *file_name, int32_t (*bram)[16], int num_of_ro
     }
     for(int i = 0; i < num_of_row; i++){
         for(int j = 0; j < 16; j++){
-            fprintf(f, "%"PRId32"\n", bram[i][j]);
+            fprintf(f, "%" PRId32 "\n", bram[i][j]);
         }
     }
     fclose(f);
@@ -122,7 +140,7 @@ int print_bram_to_file_int8(const char *file_name, int8_t (*bram)[16], int width
     }
     for(int i = 0; i < depth; i++){
         for(int j = 0; j < width; j++){
-            fprintf(f, "%"PRId8"\n", bram[i][j]);
+            fprintf(f, "%" PRId8 "\n", bram[i][j]);
         }
     }
     printf("[ERROR] Viet thanh cong bram vao file\n");
