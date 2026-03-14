@@ -13,6 +13,7 @@ enum status_t{
 #define PW_C_OUT 384
 #define PARALLEL 16
 #define NUM_OF_PE 16
+#define NUM_OF_BRAM 16
 #define PW_H_in 14
 #define PW_W_in 14
 #define PW_H_out 14
