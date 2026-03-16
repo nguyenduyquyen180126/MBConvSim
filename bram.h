@@ -51,7 +51,10 @@ int8_t (*pwconv_w_brams[16])[16] = {
 int8_t DW_W_BRAM[2352][16];
 int32_t DW_ACC_BRAM[8192][16];
 
-// ============================== 3. Helper function for bram ====================================
+// ============================== 3. BRAM của GAP ==============================
+int8_t GAP_BRAM[2352][16];
+
+// ============================== 4. Helper function for bram ====================================
 /*
 @brief Hàm mô phòng việc load từ DRAM vào BRAM bằng DMA.
 @param[in] dram Tên dram

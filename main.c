@@ -6,6 +6,7 @@
 #include "config.h"
 #include <omp.h>
 #include <unistd.h>
+#include "gap.h"
 
 
 int main(){
@@ -61,8 +62,9 @@ int main(){
     int pad_right = total_pad_j - pad_left;
 
     // =================== Tinh pipeline ===================
-    printf("[LOGS] Starting PW-DW pipeline computation loops...\n");    
+    printf("[LOGS] Starting PW-DW pipeline computation loops...\n");
     int pw_row_compete = 0;
+    int dw_tile_complete = 0;
 
     #pragma omp parallel sections
     {
@@ -213,14 +215,74 @@ int main(){
                         dw_pe_arr_store(dw_pe_arr, acc_bram_row_addr);
                     }
                 }
+                dw_tile_complete++;
             }
             printf("[LOGS] DONE DW loop\n");
         }
         #pragma omp section
         {
             printf("[LOGS] Starting Global Average Pooling ...\n");
+            for(int tile = 0; tile < DW_C_OUT / 16; tile++){
+                
+                while(tile > dw_tile_complete){
+                    // usleep(1);
+                }
+                
+                gap_acc_reset();
+                for(int i = 0; i < DW_H_OUT * DW_W_OUT; i++){
+                    // Cat lay 8 bit dau
+                    int row_indx = i * (DW_C_OUT / NUM_OF_PE) + tile;
+                    int32_t *ifm_32_bit = DW_ACC_BRAM[row_indx];
+                    int8_t gap_ifm[16];
+                    for(int j = 0; j < 16; j++){
+                        gap_ifm[j] = (int8_t)ifm_32_bit[j];
+                    }
+
+                    gap_acc[0] += gap_ifm[0];
+                    gap_acc[1] += gap_ifm[1];
+                    gap_acc[2] += gap_ifm[2];
+                    gap_acc[3] += gap_ifm[3];
+                    gap_acc[4] += gap_ifm[4];
+                    gap_acc[5] += gap_ifm[5];
+                    gap_acc[6] += gap_ifm[6];
+                    gap_acc[7] += gap_ifm[7];
+                    gap_acc[8] += gap_ifm[8];
+                    gap_acc[9] += gap_ifm[9];
+                    gap_acc[10] += gap_ifm[10];
+                    gap_acc[11] += gap_ifm[11];
+                    gap_acc[12] += gap_ifm[12];
+                    gap_acc[13] += gap_ifm[13];
+                    gap_acc[14] += gap_ifm[14];
+                    gap_acc[15] += gap_ifm[15];
+
+                }
+                gap_acc[0] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[1] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[2] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[3] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[4] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[5] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[6] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[7] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[8] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[9] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[10] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[11] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[12] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[13] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[14] /= DW_H_OUT * DW_W_OUT;
+                gap_acc[15] /= DW_H_OUT * DW_W_OUT;
+
+                gap_acc_store(gap_acc, GAP_BRAM, tile);
+                print_bram_to_file_int8("output/gap_acc.txt", GAP_BRAM, 16, 24);
+            }
+            printf("[LOGS] Done global average pooling\n");
+        }
+        #pragma omp section
+        {
+            printf("[LOGS] Starting Pointwise Conv ....\n");
             
-            printf("[LOGS] Done global average pooling")
+            printf("[LOGS] Done PW\n");
         }
     }
     printf("[LOGS] ============ Done. =============\n");
@@ -228,4 +290,5 @@ int main(){
 
     print_bram_to_file("output/acc.txt", PWCONV_ACC_BRAM, 14 * 14 * 384 / 16);
     print_bram_to_file("output/dw_acc.txt", DW_ACC_BRAM, 14 * 14 * 384 / 16);
+    print_bram(GAP_BRAM);
 }
