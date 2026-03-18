@@ -28,6 +28,7 @@ int main(){
     }
     // print_bram(PWCONV_IFM_BRAM);
     printf("[LOGS] IFM BRAM Loaded.\n");
+    
     // ============== Load PW weight ================
     // Nap san du lieu vao w bram de tinh duoc tile dau
     printf("[LOGS] Loading PW Weight BRAMs...\n");
@@ -61,10 +62,24 @@ int main(){
     int pad_left = total_pad_j / 2;
     int pad_right = total_pad_j - pad_left;
 
+    // =================== Load SE PW1 =====================
+    // Load truoc het filter vao cac BRAM
+    printf("[LOGS] Starting SE PW1 load weight...\n");
+    int se_pw_1_start_addr = dw_start_addr + 3 * 3 * 384;
+    for(int bram_indx = 0; bram_indx < SE_PW_1_COUT; bram_indx++){
+        for(int row_indx = 0; row_indx < SE_PW_1_CIN / BRAM_WIDTH_IN_BYTE; row_indx++){
+            load_bram(DRAM, se_pw_1_start_addr + bram_indx * SE_PW_1_CIN / BRAM_WIDTH_IN_BYTE + row_indx * BRAM_WIDTH_IN_BYTE, 16, SE_PW_1_BRAM, row_indx);
+        }
+    }
+    printf("[LOGS] SE PW1 loaded\n");
+
+
     // =================== Tinh pipeline ===================
     printf("[LOGS] Starting PW-DW pipeline computation loops...\n");
     int pw_row_compete = 0;
-    int dw_tile_complete = 0;
+    int dw_pixel_complete = 0;
+    int gap_tile_complete = 0; // Xong 16 kenh
+
 
     #pragma omp parallel sections
     {
@@ -210,79 +225,95 @@ int main(){
                                 dw_pe_compute(&dw_pe_arr[15], ifm_row[15], weight_row[15]);
                             }
                         }
-
                         int acc_bram_row_addr = (ho * DW_W_OUT + wo) * (DW_C_OUT / NUM_OF_PE) + tile;
                         dw_pe_arr_store(dw_pe_arr, acc_bram_row_addr);
+                        dw_pixel_complete++;
                     }
                 }
-                dw_tile_complete++;
             }
             printf("[LOGS] DONE DW loop\n");
         }
         #pragma omp section
         {
+            
             printf("[LOGS] Starting Global Average Pooling ...\n");
-            for(int tile = 0; tile < DW_C_OUT / 16; tile++){
-                
-                while(tile > dw_tile_complete){
-                    // usleep(1);
-                }
-                
+            for(int tile = 0; tile < DW_C_OUT / NUM_OF_PE; tile++){
                 gap_acc_reset();
                 for(int i = 0; i < DW_H_OUT * DW_W_OUT; i++){
-                    // Cat lay 8 bit dau
-                    int row_indx = i * (DW_C_OUT / NUM_OF_PE) + tile;
-                    int32_t *ifm_32_bit = DW_ACC_BRAM[row_indx];
-                    int8_t gap_ifm[16];
-                    for(int j = 0; j < 16; j++){
-                        gap_ifm[j] = (int8_t)ifm_32_bit[j];
+                    
+                    while(dw_pixel_complete <= i + tile * DW_H_OUT * DW_W_OUT){
+                        //usleep(1);
                     }
 
-                    gap_acc[0] += gap_ifm[0];
-                    gap_acc[1] += gap_ifm[1];
-                    gap_acc[2] += gap_ifm[2];
-                    gap_acc[3] += gap_ifm[3];
-                    gap_acc[4] += gap_ifm[4];
-                    gap_acc[5] += gap_ifm[5];
-                    gap_acc[6] += gap_ifm[6];
-                    gap_acc[7] += gap_ifm[7];
-                    gap_acc[8] += gap_ifm[8];
-                    gap_acc[9] += gap_ifm[9];
-                    gap_acc[10] += gap_ifm[10];
-                    gap_acc[11] += gap_ifm[11];
-                    gap_acc[12] += gap_ifm[12];
-                    gap_acc[13] += gap_ifm[13];
-                    gap_acc[14] += gap_ifm[14];
-                    gap_acc[15] += gap_ifm[15];
+                    // Lay hang ra tu BRAM DW
+                    int ifm_row_indx = i * (DW_C_OUT / NUM_OF_PE) + tile;
+                    int32_t *ifm_32_bit = DW_ACC_BRAM[ifm_row_indx];
+                    int8_t ifm[16];
+                    for(int i = 0; i < 16; i++){
+                        ifm[i] = (int8_t)ifm_32_bit[i];
+                    }
+
+                    gap_acc[0] += ifm[0];
+                    gap_acc[1] += ifm[1];
+                    gap_acc[2] += ifm[2];
+                    gap_acc[3] += ifm[3];
+                    gap_acc[4] += ifm[4];
+                    gap_acc[5] += ifm[5];
+                    gap_acc[6] += ifm[6];
+                    gap_acc[7] += ifm[7];
+                    gap_acc[8] += ifm[8];
+                    gap_acc[9] += ifm[9];
+                    gap_acc[10] += ifm[10];
+                    gap_acc[11] += ifm[11];
+                    gap_acc[12] += ifm[12];
+                    gap_acc[13] += ifm[13];
+                    gap_acc[14] += ifm[14];
+                    gap_acc[15] += ifm[15];
 
                 }
-                gap_acc[0] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[1] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[2] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[3] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[4] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[5] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[6] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[7] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[8] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[9] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[10] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[11] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[12] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[13] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[14] /= DW_H_OUT * DW_W_OUT;
-                gap_acc[15] /= DW_H_OUT * DW_W_OUT;
-
+                gap_acc[0] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[1] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[2] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[3] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[4] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[5] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[6] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[7] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[8] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[9] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[10] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[11] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[12] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[13] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[14] /= DW_W_OUT * DW_H_OUT;
+                gap_acc[15] /= DW_W_OUT * DW_H_OUT;
+                
                 gap_acc_store(gap_acc, GAP_BRAM, tile);
-                print_bram_to_file_int8("output/gap_acc.txt", GAP_BRAM, 16, 24);
+                gap_tile_complete++;
             }
+            print_bram_to_file_int8("gap_acc.txt", GAP_BRAM, 16, DW_C_OUT / BRAM_WIDTH_IN_BYTE);
             printf("[LOGS] Done global average pooling\n");
         }
         #pragma omp section
         {
-            printf("[LOGS] Starting Pointwise Conv ....\n");
+            int row_loaded = 0;
+            printf("[LOGS] Starting SE Pointwise 1 Conv\n");
+            for(int tile = 0; tile < SE_PW_1_COUT / NUM_OF_PE; tile++){
+                for(int ifm_tile = 0; ifm_tile < SE_PW_1_CIN / NUM_OF_PE; ifm_tile++){
+                    while(gap_tile_complete <= ifm_tile + tile * SE_PW_1_CIN / NUM_OF_PE){
+                        //usleep(1);
+                    }
+
+                }
+                
+            }
+            printf("[LOGS] Done SE Pointwise Conv\n");
+        }
+        #pragma omp section
+        {
+            // printf("[LOGS] Starting SE Pointwise 1 Conv");
             
-            printf("[LOGS] Done PW\n");
+            // printf("[LOGS] Done SE Pointwise Conv");
         }
     }
     printf("[LOGS] ============ Done. =============\n");

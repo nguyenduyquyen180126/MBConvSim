@@ -39,4 +39,15 @@ enum status_t{
 #define DW_NUM_OF_K 384
 #define DW_STRIDE 1
 
+
+
+#define NUM_OF_SE_PE 4
+#define NUM_OF_SE_BRAM 4
+#define SE_PW_1_CIN 384
+#define SE_PW_1_COUT 24
+
+
+#define SE_PW_2_CIN 24
+#define SE_PW_2_COUT 284
+
 #endif

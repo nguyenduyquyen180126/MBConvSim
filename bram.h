@@ -54,7 +54,15 @@ int32_t DW_ACC_BRAM[8192][16];
 // ============================== 3. BRAM của GAP ==============================
 int8_t GAP_BRAM[2352][16];
 
-// ============================== 4. Helper function for bram ====================================
+// ============================== 4. BRAM của SE PW1 =========================
+int8_t SE_PW_1_BRAM[2352][16];
+int32_t SE_PW_1_ACC_BRAM[8192][16];
+// ============================== 5. BRAM của SE PW2 =========================
+int8_t SE_PW_1_BRAM[2352][16];
+int32_t SE_PW_1_ACC_BRAM[8192][16];
+
+
+// ============================== 5. Helper function for bram ====================================
 /*
 @brief Hàm mô phòng việc load từ DRAM vào BRAM bằng DMA.
 @param[in] dram Tên dram

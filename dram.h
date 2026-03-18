@@ -6,7 +6,7 @@
 #include <inttypes.h>
 #include "config.h"
 
-#define DRAM_SIZE 100000
+#define DRAM_SIZE 1000000
 
 /*
     Mảng 1 chiều lớn chứa cả IFM, W, B
