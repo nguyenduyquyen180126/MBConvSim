@@ -121,19 +121,19 @@ void se_pw_compute(struct SE_PW * pe, int8_t (*ifm)[16], int ifm_row, int8_t (*w
     memcpy(pe->ifm, ifm + ifm_row, BRAM_WIDTH_IN_BYTE);
     memcpy(pe->weight, weight + w_row, BRAM_WIDTH_IN_BYTE);
     for(int i = 0; i < 16; i++){
-        pe->acc += pe->ifm[i] + pe->weight[i];
+        pe->acc += pe->ifm[i] * pe->weight[i];
     }
 }
 
-struct SE_PW se_pw_1_arr[4];
-struct SE_PW se_pw_2_arr[4];
+struct SE_PW se_pw_pe_1_arr[4];
+struct SE_PW se_pw_pe_2_arr[4];
 void se_pw_reset(struct SE_PW *pe_arr){
     for(int i = 0; i < 4; i++){
         pe_arr[i].acc = 0;
     }
 }
-void se_pw_store(struct SE_PW *pe_arr, int32_t (*acc_bram_addr)[16], int row_addr){
-    for(int i = 0; i < 16; i++){
+void se_pw_store(struct SE_PW *pe_arr, int32_t (*acc_bram_addr)[4], int row_addr){
+    for(int i = 0; i < 4; i++){
         acc_bram_addr[row_addr][i] = pe_arr[i].acc;
     }
 }

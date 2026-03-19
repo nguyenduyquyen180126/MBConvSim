@@ -12,33 +12,32 @@ enum BRAM_STATE{
     WRITE,
     READ
 };
-int ping_state = READ;
-int pong_state = WRITE;
+
 int ping_start_row = 0;
-int pong_start_row = 1176;
+int pong_start_row = 576;
 // =========================== 1. BRAM của PWConv ================================
 /*
-    BRAM(2352 x 16 pixels(8 bits)(128 bits))
+    BRAM(1152 x 16 pixels(8 bits)(128 bits))
     DMA bitwidths is 128 bits
 */
 
 int8_t PWCONV_IFM_BRAM[8192][16];
-int8_t PWCONV_W0_BRAM[2352][16];
-int8_t PWCONV_W1_BRAM[2352][16];
-int8_t PWCONV_W2_BRAM[2352][16];
-int8_t PWCONV_W3_BRAM[2352][16];
-int8_t PWCONV_W4_BRAM[2352][16];
-int8_t PWCONV_W5_BRAM[2352][16];
-int8_t PWCONV_W6_BRAM[2352][16];
-int8_t PWCONV_W7_BRAM[2352][16];
-int8_t PWCONV_W8_BRAM[2352][16];
-int8_t PWCONV_W9_BRAM[2352][16];
-int8_t PWCONV_W10_BRAM[2352][16];
-int8_t PWCONV_W11_BRAM[2352][16];
-int8_t PWCONV_W12_BRAM[2352][16];
-int8_t PWCONV_W13_BRAM[2352][16];
-int8_t PWCONV_W14_BRAM[2352][16];
-int8_t PWCONV_W15_BRAM[2352][16];
+int8_t PWCONV_W0_BRAM[1152][16];
+int8_t PWCONV_W1_BRAM[1152][16];
+int8_t PWCONV_W2_BRAM[1152][16];
+int8_t PWCONV_W3_BRAM[1152][16];
+int8_t PWCONV_W4_BRAM[1152][16];
+int8_t PWCONV_W5_BRAM[1152][16];
+int8_t PWCONV_W6_BRAM[1152][16];
+int8_t PWCONV_W7_BRAM[1152][16];
+int8_t PWCONV_W8_BRAM[1152][16];
+int8_t PWCONV_W9_BRAM[1152][16];
+int8_t PWCONV_W10_BRAM[1152][16];
+int8_t PWCONV_W11_BRAM[1152][16];
+int8_t PWCONV_W12_BRAM[1152][16];
+int8_t PWCONV_W13_BRAM[1152][16];
+int8_t PWCONV_W14_BRAM[1152][16];
+int8_t PWCONV_W15_BRAM[1152][16];
 
 int32_t PWCONV_ACC_BRAM[8192][16];
 int8_t (*pwconv_w_brams[16])[16] = {
@@ -48,18 +47,29 @@ int8_t (*pwconv_w_brams[16])[16] = {
 
 
 // ============================== 2. BRAM của DWConv ===============================
-int8_t DW_W_BRAM[2352][16];
+int8_t DW_W_BRAM[1152][16];
 int32_t DW_ACC_BRAM[8192][16];
 
 // ============================== 3. BRAM của GAP ==============================
-int8_t GAP_BRAM[2352][16];
+int8_t GAP_BRAM[1152][16];
 
 // ============================== 4. BRAM của SE PW1 =========================
-int8_t SE_PW_1_BRAM[2352][16];
+int8_t SE_PW_1_W1_BRAM[1152][16];
+int8_t SE_PW_1_W2_BRAM[1152][16];
+int8_t SE_PW_1_W3_BRAM[1152][16];
+int8_t SE_PW_1_W4_BRAM[1152][16];
+
+int8_t (*se_pw_1_w_brams[4])[16] = {
+    SE_PW_1_W1_BRAM, SE_PW_1_W2_BRAM, SE_PW_1_W3_BRAM, SE_PW_1_W4_BRAM
+};
 int32_t SE_PW_1_ACC_BRAM[8192][16];
+int32_t (*SE_PW_1_ACC_4_WIDTH_BRAM)[4] = (int32_t (*)[4])SE_PW_1_ACC_BRAM;
 // ============================== 5. BRAM của SE PW2 =========================
-int8_t SE_PW_1_BRAM[2352][16];
-int32_t SE_PW_1_ACC_BRAM[8192][16];
+int8_t SE_PW_2_W1_BRAM[1152][16];
+int8_t SE_PW_2_W2_BRAM[1152][16];
+int8_t SE_PW_2_W3_BRAM[1152][16];
+int8_t SE_PW_2_W4_BRAM[1152][16];
+int32_t SE_PW_2_ACC_BRAM[8192][16];
 
 
 // ============================== 5. Helper function for bram ====================================
@@ -96,7 +106,7 @@ void print_bram(int8_t (*bram)[16]){
         printf("\n");
     }
     // printf("....\n");
-    // for(int i = 2045; i < 2352; i++){
+    // for(int i = 2045; i < 1152; i++){
     //     printf("%4d: ", i);
     //     for(int j = 0; j < 16; j++){
     //         printf("%4" PRId32 " ", bram[i][j]);
@@ -115,7 +125,7 @@ void print_bram_32_bit(int32_t (*bram)[16]){
         printf("\n");
     }
     // printf("....\n");
-    // for(int i = 2045; i < 2352; i++){
+    // for(int i = 2045; i < 1152; i++){
     //     printf("%4d: ", i);
     //     for(int j = 0; j < 16; j++){
     //         printf("%4" PRId32 " ", bram[i][j]);
@@ -154,7 +164,7 @@ int print_bram_to_file_int8(const char *file_name, int8_t (*bram)[16], int width
             fprintf(f, "%" PRId8 "\n", bram[i][j]);
         }
     }
-    printf("[ERROR] Viet thanh cong bram vao file\n");
+    printf("[LOGS] Viet thanh cong bram vao file\n");
     return SYS_OK;
 }
 #endif

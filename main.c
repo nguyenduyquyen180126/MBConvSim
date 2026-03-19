@@ -63,28 +63,37 @@ int main(){
     int pad_right = total_pad_j - pad_left;
 
     // =================== Load SE PW1 =====================
-    // Load truoc het filter vao cac BRAM
+    // Load truoc 4 cai filter vao cac BRAM
     printf("[LOGS] Starting SE PW1 load weight...\n");
     int se_pw_1_start_addr = dw_start_addr + 3 * 3 * 384;
-    for(int bram_indx = 0; bram_indx < SE_PW_1_COUT; bram_indx++){
-        for(int row_indx = 0; row_indx < SE_PW_1_CIN / BRAM_WIDTH_IN_BYTE; row_indx++){
-            load_bram(DRAM, se_pw_1_start_addr + bram_indx * SE_PW_1_CIN / BRAM_WIDTH_IN_BYTE + row_indx * BRAM_WIDTH_IN_BYTE, 16, SE_PW_1_BRAM, row_indx);
+    int se_pw_block_size = SE_PW_1_CIN / BRAM_WIDTH_IN_BYTE;
+    for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
+        for(int row_indx = 0; row_indx < se_pw_block_size; row_indx++){
+            int dram_addr = se_pw_1_start_addr + bram_indx * SE_PW_1_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
+            load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], row_indx);
         }
     }
     printf("[LOGS] SE PW1 loaded\n");
+    // print_bram(SE_PW_1_W1_BRAM);
+    // print_bram(SE_PW_1_W2_BRAM);
+    // print_bram(SE_PW_1_W3_BRAM);
+    // print_bram(SE_PW_1_W4_BRAM);
+
 
 
     // =================== Tinh pipeline ===================
     printf("[LOGS] Starting PW-DW pipeline computation loops...\n");
-    int pw_row_compete = 0;
-    int dw_pixel_complete = 0;
-    int gap_tile_complete = 0; // Xong 16 kenh
+    volatile int pw_row_compete = 0;
+    volatile int dw_pixel_complete = 0;
+    volatile int gap_tile_complete = 0; // Xong 16 kenh
 
 
     #pragma omp parallel sections
     {
         #pragma omp section
         {
+            int ping_state = READ;
+            int pong_state = WRITE;
             printf("[LOGS] Starting PW computation loops...\n");
             for(int tile = 0; tile < PW_NUM_OF_FILTER / NUM_OF_PE; tile++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần.
                 int pingpong_row_loaded = 0;
@@ -291,35 +300,111 @@ int main(){
                 gap_acc_store(gap_acc, GAP_BRAM, tile);
                 gap_tile_complete++;
             }
-            print_bram_to_file_int8("gap_acc.txt", GAP_BRAM, 16, DW_C_OUT / BRAM_WIDTH_IN_BYTE);
+            print_bram_to_file_int8("output/gap_acc.txt", GAP_BRAM, 16, DW_C_OUT / BRAM_WIDTH_IN_BYTE);
             printf("[LOGS] Done global average pooling\n");
         }
         #pragma omp section
         {
-            int row_loaded = 0;
             printf("[LOGS] Starting SE Pointwise 1 Conv\n");
-            for(int tile = 0; tile < SE_PW_1_COUT / NUM_OF_PE; tile++){
-                for(int ifm_tile = 0; ifm_tile < SE_PW_1_CIN / NUM_OF_PE; ifm_tile++){
-                    while(gap_tile_complete <= ifm_tile + tile * SE_PW_1_CIN / NUM_OF_PE){
-                        //usleep(1);
-                    }
+            
+            int ping_state = READ;
+            int pong_state = WRITE;
 
+            
+            for(int row_ofm = 0; row_ofm < SE_PW_1_COUT / NUM_OF_SE_PE; row_ofm++){
+
+                int row_start_to_read = (ping_state == READ) ? ping_start_row : pong_start_row;
+                int row_start_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
+                se_pw_reset(se_pw_pe_1_arr);
+
+                #pragma omp parallel sections
+                {
+                    #pragma omp section
+                    {
+                        for(int row_ifm = 0; row_ifm < SE_PW_1_CIN / BRAM_WIDTH_IN_BYTE; row_ifm++){
+                            while(gap_tile_complete <= row_ifm){
+                                // usleep(1);
+                            }
+                            se_pw_compute(&se_pw_pe_1_arr[0], GAP_BRAM, row_ifm, SE_PW_1_W1_BRAM, row_start_to_read + row_ifm);
+                            se_pw_compute(&se_pw_pe_1_arr[1], GAP_BRAM, row_ifm, SE_PW_1_W2_BRAM, row_start_to_read + row_ifm);
+                            se_pw_compute(&se_pw_pe_1_arr[2], GAP_BRAM, row_ifm, SE_PW_1_W3_BRAM, row_start_to_read + row_ifm);
+                            se_pw_compute(&se_pw_pe_1_arr[3], GAP_BRAM, row_ifm, SE_PW_1_W4_BRAM, row_start_to_read + row_ifm);
+                        }
+                    }
+                    #pragma omp section
+                    {
+                        if(row_ofm + 1 < SE_PW_1_COUT / NUM_OF_SE_PE){
+                            for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
+                                for(int row = 0; row < SE_PW_1_CIN / BRAM_WIDTH_IN_BYTE; row++){
+                                    int dram_addr = se_pw_1_start_addr + (row_ofm + 1) * SE_PW_1_CIN * NUM_OF_SE_BRAM  + bram_indx * SE_PW_1_CIN + row * BRAM_WIDTH_IN_BYTE;
+                                    load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], row_start_to_write + row);
+                                }
+                            }
+                        }
+                    }
                 }
+                int acc_row = row_ofm;
+                se_pw_store(se_pw_pe_1_arr, SE_PW_1_ACC_4_WIDTH_BRAM, acc_row);
                 
+                ping_state = 1 - ping_state;
+                pong_state = 1 - pong_state;
             }
             printf("[LOGS] Done SE Pointwise Conv\n");
+            
         }
         #pragma omp section
         {
-            // printf("[LOGS] Starting SE Pointwise 1 Conv");
+            printf("[LOGS] Starting SE Pointwise 2 Conv\n");
+
+            int ping_state = READ;
+            int pong_state = WRITE;
             
-            // printf("[LOGS] Done SE Pointwise Conv");
+            for(int row_ofm = 0; row_ofm < SE_PW_2_COUT / NUM_OF_SE_PE; row_ofm++){
+
+                int row_start_to_read = (ping_state == READ) ? ping_start_row : pong_start_row;
+                int row_start_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
+                se_pw_reset(se_pw_pe_2_arr);
+
+                #pragma omp parallel sections
+                {
+                    #pragma omp section
+                    {
+                        for(int row_ifm = 0; row_ifm < SE_PW_2_CIN / BRAM_WIDTH_IN_BYTE; row_ifm++){
+                            while(gap_tile_complete <= row_ifm){
+                                // usleep(1);
+                            }
+                            se_pw_compute(&se_pw_pe_1_arr[0], GAP_BRAM, row_ifm, SE_PW_2_W1_BRAM, row_start_to_read + row_ifm);
+                            se_pw_compute(&se_pw_pe_1_arr[1], GAP_BRAM, row_ifm, SE_PW_2_W2_BRAM, row_start_to_read + row_ifm);
+                            se_pw_compute(&se_pw_pe_1_arr[2], GAP_BRAM, row_ifm, SE_PW_2_W3_BRAM, row_start_to_read + row_ifm);
+                            se_pw_compute(&se_pw_pe_1_arr[3], GAP_BRAM, row_ifm, SE_PW_2_W4_BRAM, row_start_to_read + row_ifm);
+                        }
+                    }
+                    #pragma omp section
+                    {
+                        if(row_ofm + 1 < SE_PW_2_COUT / NUM_OF_SE_PE){
+                            for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
+                                for(int row = 0; row < SE_PW_2_CIN / BRAM_WIDTH_IN_BYTE; row++){
+                                    int dram_addr = se_pw_2_start_addr + (row_ofm + 1) * SE_PW_2_CIN * NUM_OF_SE_BRAM  + bram_indx * SE_PW_2_CIN + row * BRAM_WIDTH_IN_BYTE;
+                                    load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], row_start_to_write + row);
+                                }
+                            }
+                        }
+                    }
+                }
+                int acc_row = row_ofm;
+                se_pw_store(se_pw_pe_1_arr, SE_PW_1_ACC_4_WIDTH_BRAM, acc_row);
+                
+                ping_state = 1 - ping_state;
+                pong_state = 1 - pong_state;
+            }
+            printf("[LOGS] Done SE Pointwise Conv\n");
         }
     }
     printf("[LOGS] ============ Done. =============\n");
-    print_bram_32_bit(DW_ACC_BRAM);
+    // print_bram_32_bit(DW_ACC_BRAM);
 
     print_bram_to_file("output/acc.txt", PWCONV_ACC_BRAM, 14 * 14 * 384 / 16);
     print_bram_to_file("output/dw_acc.txt", DW_ACC_BRAM, 14 * 14 * 384 / 16);
-    print_bram(GAP_BRAM);
+    // print_bram(GAP_BRAM);
+    print_bram_32_bit(SE_PW_1_ACC_BRAM);
 }
