@@ -42,6 +42,7 @@ if __name__ == '__main__':
     with open('test/se_pw1_out_1_1_24.txt', 'r') as f:
         for c in range(24):
             input[0, c, 0, 0] = int(f.readline().strip())
+    input = input.astype(np.int8)
     pw_conv = nn.Conv2d(24, 384, kernel_size=1, bias=False)
     with torch.no_grad():
         pw_conv.weight.copy_(torch.from_numpy(pw_weight).float())

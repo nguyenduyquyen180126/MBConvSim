@@ -132,9 +132,10 @@ void se_pw_reset(struct SE_PW *pe_arr){
         pe_arr[i].acc = 0;
     }
 }
-void se_pw_store(struct SE_PW *pe_arr, int32_t (*acc_bram_addr)[4], int row_addr){
+void se_pw_store(struct SE_PW *pe_arr, int32_t (*acc_bram)[16], int bram_addr){
+    int32_t *acc_bram_flatten = (int32_t *)acc_bram;
     for(int i = 0; i < 4; i++){
-        acc_bram_addr[row_addr][i] = pe_arr[i].acc;
+        acc_bram_flatten[bram_addr + i] = pe_arr[i].acc;
     }
 }
 

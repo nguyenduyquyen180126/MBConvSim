@@ -69,8 +69,11 @@ int8_t SE_PW_2_W1_BRAM[1152][16];
 int8_t SE_PW_2_W2_BRAM[1152][16];
 int8_t SE_PW_2_W3_BRAM[1152][16];
 int8_t SE_PW_2_W4_BRAM[1152][16];
+int8_t (*se_pw_2_w_brams[4])[16] = {
+    SE_PW_2_W1_BRAM, SE_PW_2_W2_BRAM, SE_PW_2_W3_BRAM, SE_PW_2_W4_BRAM
+};
 int32_t SE_PW_2_ACC_BRAM[8192][16];
-
+int32_t (*SE_PW_2_ACC_4_WIDTH_BRAM)[4] = (int32_t (*)[4])SE_PW_2_ACC_BRAM;
 
 // ============================== 5. Helper function for bram ====================================
 /*
@@ -89,6 +92,10 @@ int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram
     }
     memcpy(bram + addr_bram, dram + addr_dram, trans_size_in_byte);
     return 1;
+}
+void __load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram)[16], int addr_bram){
+    int8_t *bram_flatten = (int8_t *)bram;
+    memcpy(bram_flatten + addr_bram, dram + addr_dram, trans_size_in_byte);
 }
 /*
     Double buffering BRAM

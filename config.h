@@ -48,6 +48,6 @@ enum status_t{
 
 
 #define SE_PW_2_CIN 24
-#define SE_PW_2_COUT 284
+#define SE_PW_2_COUT 384
 
 #endif
