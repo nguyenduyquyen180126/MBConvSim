@@ -37,11 +37,11 @@ if __name__ == '__main__':
     # with open('test/se_pw1_out_1_1_24.txt', 'w') as f:
     #     for c in range(C):
     #         print(output[0, c, 0, 0], file=f)
-    pw_weight = np.ndarray((384, 96, 1, 1))
-    with open('test/pw_out_last.txt', 'r') as f:
+    pw_weight = np.ndarray((96, 384, 1, 1))
+    with open('test/pw_w_last.txt', 'r') as f:
         for cout in range(96):
             for cin in range(384):
-                pw_weight[cin, cout, 0, 0] = int(f.readline().strip())
+                pw_weight[cout, cin, 0, 0] = int(f.readline().strip())
     pw_weight = pw_weight.astype(np.int8)
     print(pw_weight)
     input = np.ndarray((1, 14, 14, 384))
@@ -58,10 +58,10 @@ if __name__ == '__main__':
     input = torch.from_numpy(input).permute(0, 3, 1, 2).float()
     output = pw_conv(input)
     print(output)
-    with open('test/pw_w_last.txt', 'w') as f:
-        for cin in range(384):
-            for cout in range(96):
-                print(pw_weight[cout, cin, 0, 0], file=f)
+    # with open('test/pw_w_last.txt', 'w') as f:
+    #     for cin in range(384):
+    #         for cout in range(96):
+    #             print(pw_weight[cout, cin, 0, 0], file=f)
     output = output.detach().numpy()
     output = output.astype(np.int32)
     with open('test/pw_out_last.txt', 'w') as f:

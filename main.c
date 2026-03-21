@@ -99,23 +99,6 @@ int main(){
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], ping_start_row + i);
         }
     }
-    print_bram(PW_LAST_W0_BRAM);
-    print_bram(PW_LAST_W1_BRAM);
-    print_bram(PW_LAST_W2_BRAM);
-    print_bram(PW_LAST_W3_BRAM);
-    print_bram(PW_LAST_W4_BRAM);
-    print_bram(PW_LAST_W5_BRAM);
-    print_bram(PW_LAST_W6_BRAM);
-    print_bram(PW_LAST_W7_BRAM);
-    print_bram(PW_LAST_W8_BRAM);
-    print_bram(PW_LAST_W9_BRAM);
-    print_bram(PW_LAST_W10_BRAM);
-    print_bram(PW_LAST_W11_BRAM);
-    print_bram(PW_LAST_W12_BRAM);
-    print_bram(PW_LAST_W13_BRAM);
-    print_bram(PW_LAST_W14_BRAM);
-    print_bram(PW_LAST_W15_BRAM);
-
     printf("[LOGS] PW Weight BRAMs Loaded.\n");
 
     // =================== Tinh pipeline ===================
