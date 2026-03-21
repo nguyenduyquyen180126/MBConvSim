@@ -51,15 +51,9 @@ enum status_t{
 #define SE_PW_2_COUT 384
 
 #define PW_LAST_CIN 384
-#define PW_LAST_COUT 24
 #define PW_LAST_H 14
 #define PW_LAST_W 14
-#define SE_PW_2_COUT 384
+#define PW_LAST_COUT 96
 
-#define PW_LAST_CIN 384
-#define PW_LAST_COUT 24
-#define PW_LAST_H 14
-#define PW_LAST_W 14
-#define PW_LAST_COUT 24
 
 #endif

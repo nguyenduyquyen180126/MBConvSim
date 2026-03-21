@@ -86,24 +86,35 @@ int main(){
         }
     }
     printf("[LOGS] SE PW2 loaded\n");
-    print_bram(SE_PW_2_W1_BRAM);
-    print_bram(SE_PW_2_W2_BRAM);
-    print_bram(SE_PW_2_W3_BRAM);
-    print_bram(SE_PW_2_W4_BRAM);
+    
 
     // ==================== Load PW LAST ====================
     int pw_last_start_addr = se_pw_2_start_addr + 24 * 384;
     printf("[LOGS] Loading PW Weight BRAMs...\n");
-    write_enable_weight = 1;
-    while(write_enable_weight != 0){ // Vòng for ngoài cùng duyệt các BRAM
-        int bram_indx = __builtin_ctz(write_enable_weight);// Load BRAM thứ mấy
-
-        for(int i = 0; i < PW_C_IN / BRAM_WIDTH_IN_BYTE; i++){
-            load_bram(DRAM, pw_last_start_addr + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_LAST_CIN, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], i);
+   
+    for(int bram_indx = 0; bram_indx < NUM_OF_BRAM; bram_indx++){
+        for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
+             // Input channel block i, Output channel bram_indx
+            int dram_addr = pw_last_start_addr + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_LAST_CIN;
+            load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], ping_start_row + i);
         }
-
-        write_enable_weight = write_enable_weight << 1;
     }
+    print_bram(PW_LAST_W0_BRAM);
+    print_bram(PW_LAST_W1_BRAM);
+    print_bram(PW_LAST_W2_BRAM);
+    print_bram(PW_LAST_W3_BRAM);
+    print_bram(PW_LAST_W4_BRAM);
+    print_bram(PW_LAST_W5_BRAM);
+    print_bram(PW_LAST_W6_BRAM);
+    print_bram(PW_LAST_W7_BRAM);
+    print_bram(PW_LAST_W8_BRAM);
+    print_bram(PW_LAST_W9_BRAM);
+    print_bram(PW_LAST_W10_BRAM);
+    print_bram(PW_LAST_W11_BRAM);
+    print_bram(PW_LAST_W12_BRAM);
+    print_bram(PW_LAST_W13_BRAM);
+    print_bram(PW_LAST_W14_BRAM);
+    print_bram(PW_LAST_W15_BRAM);
 
     printf("[LOGS] PW Weight BRAMs Loaded.\n");
 
@@ -122,24 +133,23 @@ int main(){
             int pong_state = WRITE;
             printf("[LOGS] Starting PW computation loops...\n");
             for(int tile = 0; tile < PW_NUM_OF_FILTER / NUM_OF_PE; tile++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần.
-                int pingpong_row_loaded = 0;
-                for(int ho = 0; ho < PW_H_out; ho++){
-                    for(int wo = 0; wo < PW_W_out; wo++){
-                        pw_pe_array_reset_acc(pw_pe_array);
-                        int row_needed_for_one_pixel_depth = PW_C_IN / BRAM_WIDTH_IN_BYTE; // Một vector 1x1xC_in.
-                        int ifm_row_indx = (ho * PW_W_in + wo) * row_needed_for_one_pixel_depth;
-                        
-                        int w_row_indx = (ping_state == READ) ? ping_start_row : pong_start_row;
-                        int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
-
-                        // ================ Tinh va load =================
-                        
-                        for(int i = 0; i < PW_FILTER_SIZE / NUM_OF_PE; i++){
-                            // Song song viec load va tinh toan
-                            #pragma omp parallel sections
-                            {
-                                #pragma omp section
-                                {
+                #pragma omp parallel sections
+                {
+                    #pragma omp section
+                    {
+                        int pingpong_row_loaded = 0;
+                        for(int ho = 0; ho < PW_H_out; ho++){
+                            for(int wo = 0; wo < PW_W_out; wo++){
+                                pw_pe_array_reset_acc(pw_pe_array);
+                                int row_needed_for_one_pixel_depth = PW_C_IN / BRAM_WIDTH_IN_BYTE; // Một vector 1x1xC_in.
+                                int ifm_row_indx = (ho * PW_W_in + wo) * row_needed_for_one_pixel_depth;
+                                
+                                int w_row_indx = (ping_state == READ) ? ping_start_row : pong_start_row;
+                                
+                                // ================ Tinh va load =================
+                                
+                                for(int i = 0; i < PW_FILTER_SIZE / NUM_OF_PE; i++){
+                                    // Song song viec load va tinh toan
                                     pw_pe_compute(&pw_pe_array[0], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W0_BRAM, w_row_indx + i);
                                     pw_pe_compute(&pw_pe_array[1], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W1_BRAM, w_row_indx + i);
                                     pw_pe_compute(&pw_pe_array[2], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W2_BRAM, w_row_indx + i);
@@ -157,23 +167,31 @@ int main(){
                                     pw_pe_compute(&pw_pe_array[14], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W14_BRAM, w_row_indx + i);
                                     pw_pe_compute(&pw_pe_array[15], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W15_BRAM, w_row_indx + i);
                                 }
-                                #pragma omp section
-                                {
-                                    if(pingpong_row_loaded < PW_FILTER_SIZE * NUM_OF_BRAM / BRAM_WIDTH_IN_BYTE){
-                                        int dram_start_addr = PW_WEIGHT_START_ADDR + (tile + 1) * PW_FILTER_SIZE * NUM_OF_PE + pingpong_row_loaded * 16;
-                                        int bram_indx = pingpong_row_loaded / (PW_FILTER_SIZE / NUM_OF_PE);
-                                        load_bram(DRAM, dram_start_addr, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], w_row_indx_to_write + i);
-                                        pingpong_row_loaded++;
-                                    }
+                            
+                                // ================================================
+                                int row_needed_for_one_pixel_depth_output = PW_C_OUT / BRAM_WIDTH_IN_BYTE;
+                                int acc_row = (ho * PW_W_out + wo) * row_needed_for_one_pixel_depth_output + tile; //(Hàng bắt đầu + số hàng offset)
+                                pw_pe_array_store(pw_pe_array, PWCONV_ACC_BRAM, acc_row);
+                            }
+                            pw_row_compete++;
+                        }
+                    }
+                    #pragma omp section
+                    {
+                        // Write code to load next 16 filter
+                        if(tile < (PW_NUM_OF_FILTER / NUM_OF_PE) - 1){
+                            int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
+                            int rows_per_bram = PW_C_IN / BRAM_WIDTH_IN_BYTE;
+                            int next_tile_offset = (tile + 1) * NUM_OF_PE * PW_FILTER_SIZE;
+                            
+                            for(int bram_indx = 0; bram_indx < NUM_OF_BRAM; bram_indx++){
+                                for(int r = 0; r < rows_per_bram; r++){
+                                    int dram_addr = PW_WEIGHT_START_ADDR + next_tile_offset + bram_indx * PW_FILTER_SIZE + r * BRAM_WIDTH_IN_BYTE;
+                                    load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], w_row_indx_to_write + r);
                                 }
                             }
                         }
-                        // ================================================
-                        int row_needed_for_one_pixel_depth_output = PW_C_OUT / BRAM_WIDTH_IN_BYTE;
-                        int acc_row = (ho * PW_W_out + wo) * row_needed_for_one_pixel_depth_output + tile; //(Hàng bắt đầu + số hàng offset)
-                        pw_pe_array_store(pw_pe_array, PWCONV_ACC_BRAM, acc_row);
                     }
-                    pw_row_compete++;
                 }
                 // Hoan doi vai tro ping va pong
                 ping_state = 1 - ping_state;
@@ -473,79 +491,81 @@ int main(){
             }
             printf("[LOGS] Done MUL\n");
         }
-        // #pragma omp section
-        // {
-        //     printf("[LOGS] Starting the last PW ...\n");
-        //     int ping_state = READ;
-        //     int pong_state = WRITE;
-        //     for(int tile = 0; tile < PW_LAST_COUT / NUM_OF_PE; tile++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần.
-        //         int pingpong_row_loaded = 0;
-        //         for(int ho = 0; ho < PW_LAST_H; ho++){
-        //             for(int wo = 0; wo < PW_LAST_W; wo++){
-        //                 pw_pe_array_reset_acc(pw_last_pe_arr);
-        //                 int row_needed_for_one_pixel_depth = PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; // Một vector 1x1xC_in.
-        //                 int ifm_row_indx = (ho * PW_LAST_W + wo) * row_needed_for_one_pixel_depth;
-                        
-        //                 int w_row_indx = (ping_state == READ) ? ping_start_row : pong_start_row;
-        //                 int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
+        #pragma omp section
+        {
+            printf("[LOGS] Starting the last PW ...\n");
+            int ping_state = READ;
+            int pong_state = WRITE;
+            for(int tile = 0; tile < PW_LAST_COUT / NUM_OF_PE; tile++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần.
+                
+                #pragma omp parallel sections
+                {
+                    #pragma omp section
+                    {
+                        for(int ho = 0; ho < PW_LAST_H; ho++){
+                            for(int wo = 0; wo < PW_LAST_W; wo++){
+                                pw_pe_array_reset_acc(pw_last_pe_arr);
+                                int row_needed_for_one_pixel_depth = PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; // Một vector 1x1xC_in.
+                                int ifm_row_indx = (ho * PW_LAST_W + wo) * row_needed_for_one_pixel_depth;
+                                
+                                int w_row_indx = (ping_state == READ) ? ping_start_row : pong_start_row;
+                                
+                                // ================ Tinh va load =================
+                                
+                                for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
+                                    int32_t *SE_OUT_32_BIT = MUL_BRAM[ifm_row_indx + i];
+                                    int8_t ifm[16];
+                                    for(int j = 0; j < 16; j++){
+                                        ifm[j] = (int8_t)SE_OUT_32_BIT[j];
+                                    }
 
-        //                 int32_t *SE_OUT_32_BIT = MUL_BRAM[ifm_row_indx];
-        //                 int8_t ifm[16];
-        //                 for(int i = 0; i < 16; i++){
-        //                     ifm[i] = SE_OUT_32_BIT[i];
-        //                 }
+                                    pw_pe_compute(&pw_last_pe_arr[0], &ifm, 0, PW_LAST_W0_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[1], &ifm, 0, PW_LAST_W1_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[2], &ifm, 0, PW_LAST_W2_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[3], &ifm, 0, PW_LAST_W3_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[4], &ifm, 0, PW_LAST_W4_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[5], &ifm, 0, PW_LAST_W5_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[6], &ifm, 0, PW_LAST_W6_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[7], &ifm, 0, PW_LAST_W7_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[8], &ifm, 0, PW_LAST_W8_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[9], &ifm, 0, PW_LAST_W9_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[10], &ifm, 0, PW_LAST_W10_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[11], &ifm, 0, PW_LAST_W11_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[12], &ifm, 0, PW_LAST_W12_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[13], &ifm, 0, PW_LAST_W13_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[14], &ifm, 0, PW_LAST_W14_BRAM, w_row_indx + i);
+                                    pw_pe_compute(&pw_last_pe_arr[15], &ifm, 0, PW_LAST_W15_BRAM, w_row_indx + i);
+                                }
+                                // ================================================
+                                int row_needed_for_one_pixel_depth_output = PW_LAST_COUT / BRAM_WIDTH_IN_BYTE;
+                                int acc_row = (ho * PW_LAST_W + wo) * row_needed_for_one_pixel_depth_output + tile; 
+                                pw_pe_array_store(pw_last_pe_arr, PW_LAST_ACC_BRAM, acc_row);
+                            }
+                        }
+                    }
+                    #pragma omp section
+                    {
+                        if(tile < (PW_LAST_COUT / NUM_OF_PE) - 1){
+                             int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
+                             // Calculate start address for next tile
+                            int start_addr_next_tile = pw_last_start_addr + (tile + 1) * NUM_OF_PE * PW_LAST_CIN;
 
+                            for(int bram_indx = 0; bram_indx < NUM_OF_BRAM; bram_indx++){
+                                for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
+                                     int dram_addr = start_addr_next_tile + bram_indx * PW_LAST_CIN + i * BRAM_WIDTH_IN_BYTE;
+                                     load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], w_row_indx_to_write + i);
+                                }
+                            }
+                        }
+                    }
+                }
+                // Hoan doi vai tro ping va pong
+                ping_state = 1 - ping_state;
+                pong_state = 1 - pong_state;
+            }
 
-        //                 // ================ Tinh va load =================
-                        
-        //                 for(int i = 0; i < PW_LAST_CIN / NUM_OF_PE; i++){
-        //                     // Song song viec load va tinh toan
-        //                     #pragma omp parallel sections
-        //                     {
-        //                         #pragma omp section
-        //                         {
-        //                             pw_pe_compute(&pw_last_pe_arr[0], &ifm, ifm_row_indx + i, PW_LAST_W0_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[1], &ifm, ifm_row_indx + i, PW_LAST_W1_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[2], &ifm, ifm_row_indx + i, PW_LAST_W2_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[3], &ifm, ifm_row_indx + i, PW_LAST_W3_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[4], &ifm, ifm_row_indx + i, PW_LAST_W4_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[5], &ifm, ifm_row_indx + i, PW_LAST_W5_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[6], &ifm, ifm_row_indx + i, PW_LAST_W6_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[7], &ifm, ifm_row_indx + i, PW_LAST_W7_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[8], &ifm, ifm_row_indx + i, PW_LAST_W8_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[9], &ifm, ifm_row_indx + i, PW_LAST_W9_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[10], &ifm, ifm_row_indx + i, PW_LAST_W10_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[11], &ifm, ifm_row_indx + i, PW_LAST_W11_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[12], &ifm, ifm_row_indx + i, PW_LAST_W12_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[13], &ifm, ifm_row_indx + i, PW_LAST_W13_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[14], &ifm, ifm_row_indx + i, PW_LAST_W14_BRAM, w_row_indx + i);
-        //                             pw_pe_compute(&pw_last_pe_arr[15], &ifm, ifm_row_indx + i, PW_LAST_W15_BRAM, w_row_indx + i);
-        //                         }
-        //                         #pragma omp section
-        //                         {
-        //                             if(pingpong_row_loaded < PW_LAST_CIN * NUM_OF_BRAM / BRAM_WIDTH_IN_BYTE){
-        //                                 int dram_start_addr = pw_last_start_addr + (tile + 1) * PW_LAST_CIN * NUM_OF_PE + pingpong_row_loaded * 16;
-        //                                 int bram_indx = pingpong_row_loaded / (PW_LAST_CIN / NUM_OF_PE);
-        //                                 load_bram(DRAM, dram_start_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], w_row_indx_to_write + i);
-        //                                 pingpong_row_loaded++;
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 // ================================================
-        //                 int row_needed_for_one_pixel_depth_output = PW_C_OUT / BRAM_WIDTH_IN_BYTE;
-        //                 int acc_row = (ho * PW_W_out + wo) * row_needed_for_one_pixel_depth_output + tile; 
-        //                 pw_pe_array_store(pw_last_pe_arr, PW_LAST_ACC_BRAM, acc_row);
-        //             }
-        //             pw_row_compete++;
-        //         }
-        //         // Hoan doi vai tro ping va pong
-        //         ping_state = 1 - ping_state;
-        //         pong_state = 1 - pong_state;
-        //     }
-
-        //     printf("[LOGS] Done the last PW\n");
-        // }
+            printf("[LOGS] Done the last PW\n");
+        }
         #pragma omp section
         {
             // printf("[LOGS] Starting add op....\n");
@@ -562,7 +582,7 @@ int main(){
     print_bram_to_file("output/se_pw1.txt", SE_PW_1_ACC_BRAM, 2);
     print_bram_to_file("output/se_pw2.txt", SE_PW_2_ACC_BRAM, 384/16);
     print_bram_to_file("output/mul.txt", MUL_BRAM, 14 * 14 * 384 / 16);
-    print_bram_to_file("output/pw_last_acc.txt", PW_LAST_ACC_BRAM, 14 * 14 * 384 / 16);
+    print_bram_to_file("output/pw_last_acc.txt", PW_LAST_ACC_BRAM, 14 * 14 * 96 / 16);
 
 
     // print_bram(GAP_BRAM);
