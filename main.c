@@ -7,6 +7,7 @@
 #include <omp.h>
 #include <unistd.h>
 #include "gap.h"
+#include "mul.h"
 
 
 int main(){
@@ -90,7 +91,21 @@ int main(){
     print_bram(SE_PW_2_W3_BRAM);
     print_bram(SE_PW_2_W4_BRAM);
 
+    // ==================== Load PW LAST ====================
+    int pw_last_start_addr = se_pw_2_start_addr + 24 * 384;
+    printf("[LOGS] Loading PW Weight BRAMs...\n");
+    write_enable_weight = 1;
+    while(write_enable_weight != 0){ // Vòng for ngoài cùng duyệt các BRAM
+        int bram_indx = __builtin_ctz(write_enable_weight);// Load BRAM thứ mấy
 
+        for(int i = 0; i < PW_C_IN / BRAM_WIDTH_IN_BYTE; i++){
+            load_bram(DRAM, pw_last_start_addr + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_LAST_CIN, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], i);
+        }
+
+        write_enable_weight = write_enable_weight << 1;
+    }
+
+    printf("[LOGS] PW Weight BRAMs Loaded.\n");
 
     // =================== Tinh pipeline ===================
     printf("[LOGS] Starting PW-DW pipeline computation loops...\n");
@@ -156,7 +171,7 @@ int main(){
                         // ================================================
                         int row_needed_for_one_pixel_depth_output = PW_C_OUT / BRAM_WIDTH_IN_BYTE;
                         int acc_row = (ho * PW_W_out + wo) * row_needed_for_one_pixel_depth_output + tile; //(Hàng bắt đầu + số hàng offset)
-                        pw_pe_array_store(pw_pe_array, acc_row);
+                        pw_pe_array_store(pw_pe_array, PWCONV_ACC_BRAM, acc_row);
                     }
                     pw_row_compete++;
                 }
@@ -336,10 +351,10 @@ int main(){
                             while(gap_tile_complete <= row_ifm){
                                 // usleep(1);
                             }
-                            se_pw_compute(&se_pw_pe_1_arr[0], GAP_BRAM, row_ifm, SE_PW_1_W1_BRAM, row_start_to_read + row_ifm);
-                            se_pw_compute(&se_pw_pe_1_arr[1], GAP_BRAM, row_ifm, SE_PW_1_W2_BRAM, row_start_to_read + row_ifm);
-                            se_pw_compute(&se_pw_pe_1_arr[2], GAP_BRAM, row_ifm, SE_PW_1_W3_BRAM, row_start_to_read + row_ifm);
-                            se_pw_compute(&se_pw_pe_1_arr[3], GAP_BRAM, row_ifm, SE_PW_1_W4_BRAM, row_start_to_read + row_ifm);
+                            pw_pe_compute(&se_pw_pe_1_arr[0], GAP_BRAM, row_ifm, SE_PW_1_W1_BRAM, row_start_to_read + row_ifm);
+                            pw_pe_compute(&se_pw_pe_1_arr[1], GAP_BRAM, row_ifm, SE_PW_1_W2_BRAM, row_start_to_read + row_ifm);
+                            pw_pe_compute(&se_pw_pe_1_arr[2], GAP_BRAM, row_ifm, SE_PW_1_W3_BRAM, row_start_to_read + row_ifm);
+                            pw_pe_compute(&se_pw_pe_1_arr[3], GAP_BRAM, row_ifm, SE_PW_1_W4_BRAM, row_start_to_read + row_ifm);
                         }
                     }
                     #pragma omp section
@@ -391,10 +406,10 @@ int main(){
                                 ifm_row[i] = (int8_t)ifm_32_bit[i];
                             }
 
-                            se_pw_compute(&se_pw_pe_2_arr[0], &ifm_row, 0, SE_PW_2_W1_BRAM, row_start_to_read + row_ifm);
-                            se_pw_compute(&se_pw_pe_2_arr[1], &ifm_row, 0, SE_PW_2_W2_BRAM, row_start_to_read + row_ifm);
-                            se_pw_compute(&se_pw_pe_2_arr[2], &ifm_row, 0, SE_PW_2_W3_BRAM, row_start_to_read + row_ifm);
-                            se_pw_compute(&se_pw_pe_2_arr[3], &ifm_row, 0, SE_PW_2_W4_BRAM, row_start_to_read + row_ifm);
+                            pw_pe_compute(&se_pw_pe_2_arr[0], &ifm_row, 0, SE_PW_2_W1_BRAM, row_start_to_read + row_ifm);
+                            pw_pe_compute(&se_pw_pe_2_arr[1], &ifm_row, 0, SE_PW_2_W2_BRAM, row_start_to_read + row_ifm);
+                            pw_pe_compute(&se_pw_pe_2_arr[2], &ifm_row, 0, SE_PW_2_W3_BRAM, row_start_to_read + row_ifm);
+                            pw_pe_compute(&se_pw_pe_2_arr[3], &ifm_row, 0, SE_PW_2_W4_BRAM, row_start_to_read + row_ifm);
                         }
                     }
                     #pragma omp section
@@ -414,14 +429,127 @@ int main(){
                 
                 ping_state = 1 - ping_state;
                 pong_state = 1 - pong_state;
+           
             }
             printf("[LOGS] Done SE Pointwise Conv\n");
         }
         #pragma omp section
         {
             printf("[LOGS] Starting pointwise MUL\n");
-            
-            printf("[LOGS] Done MUL");
+            for(int se_out = 0; se_out < DW_C_OUT / BRAM_WIDTH_IN_BYTE; se_out++){
+                
+                for(int row_indx_in_16_channel = 0; row_indx_in_16_channel < DW_H_OUT * DW_W_OUT; row_indx_in_16_channel++){
+                    
+                    int8_t se_row[16];
+                    for(int i = 0; i < 16; i++){
+                        se_row[i] = (int8_t)SE_PW_2_ACC_BRAM[se_out][i];
+                    }
+                    // Get the DW out
+                    int8_t dw_out[16];
+                    int dw_data_idx = row_indx_in_16_channel * (DW_C_OUT / BRAM_WIDTH_IN_BYTE) + se_out;
+                    for(int i = 0; i < 16; i++){
+                        dw_out[i] = (int8_t)DW_ACC_BRAM[dw_data_idx][i];
+                    }
+
+                    mul_act(&mul[0], se_row[0], dw_out[0]);
+                    mul_act(&mul[1], se_row[1], dw_out[1]);
+                    mul_act(&mul[2], se_row[2], dw_out[2]);
+                    mul_act(&mul[3], se_row[3], dw_out[3]);
+                    mul_act(&mul[4], se_row[4], dw_out[4]);
+                    mul_act(&mul[5], se_row[5], dw_out[5]);
+                    mul_act(&mul[6], se_row[6], dw_out[6]);
+                    mul_act(&mul[7], se_row[7], dw_out[7]);
+                    mul_act(&mul[8], se_row[8], dw_out[8]);
+                    mul_act(&mul[9], se_row[9], dw_out[9]);
+                    mul_act(&mul[10], se_row[10], dw_out[10]);
+                    mul_act(&mul[11], se_row[11], dw_out[11]);
+                    mul_act(&mul[12], se_row[12], dw_out[12]);
+                    mul_act(&mul[13], se_row[13], dw_out[13]);
+                    mul_act(&mul[14], se_row[14], dw_out[14]);
+                    mul_act(&mul[15], se_row[15], dw_out[15]);
+                    mul_store(MUL_BRAM, dw_data_idx);
+                }
+    
+            }
+            printf("[LOGS] Done MUL\n");
+        }
+        // #pragma omp section
+        // {
+        //     printf("[LOGS] Starting the last PW ...\n");
+        //     int ping_state = READ;
+        //     int pong_state = WRITE;
+        //     for(int tile = 0; tile < PW_LAST_COUT / NUM_OF_PE; tile++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần.
+        //         int pingpong_row_loaded = 0;
+        //         for(int ho = 0; ho < PW_LAST_H; ho++){
+        //             for(int wo = 0; wo < PW_LAST_W; wo++){
+        //                 pw_pe_array_reset_acc(pw_last_pe_arr);
+        //                 int row_needed_for_one_pixel_depth = PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; // Một vector 1x1xC_in.
+        //                 int ifm_row_indx = (ho * PW_LAST_W + wo) * row_needed_for_one_pixel_depth;
+                        
+        //                 int w_row_indx = (ping_state == READ) ? ping_start_row : pong_start_row;
+        //                 int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
+
+        //                 int32_t *SE_OUT_32_BIT = MUL_BRAM[ifm_row_indx];
+        //                 int8_t ifm[16];
+        //                 for(int i = 0; i < 16; i++){
+        //                     ifm[i] = SE_OUT_32_BIT[i];
+        //                 }
+
+
+        //                 // ================ Tinh va load =================
+                        
+        //                 for(int i = 0; i < PW_LAST_CIN / NUM_OF_PE; i++){
+        //                     // Song song viec load va tinh toan
+        //                     #pragma omp parallel sections
+        //                     {
+        //                         #pragma omp section
+        //                         {
+        //                             pw_pe_compute(&pw_last_pe_arr[0], &ifm, ifm_row_indx + i, PW_LAST_W0_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[1], &ifm, ifm_row_indx + i, PW_LAST_W1_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[2], &ifm, ifm_row_indx + i, PW_LAST_W2_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[3], &ifm, ifm_row_indx + i, PW_LAST_W3_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[4], &ifm, ifm_row_indx + i, PW_LAST_W4_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[5], &ifm, ifm_row_indx + i, PW_LAST_W5_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[6], &ifm, ifm_row_indx + i, PW_LAST_W6_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[7], &ifm, ifm_row_indx + i, PW_LAST_W7_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[8], &ifm, ifm_row_indx + i, PW_LAST_W8_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[9], &ifm, ifm_row_indx + i, PW_LAST_W9_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[10], &ifm, ifm_row_indx + i, PW_LAST_W10_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[11], &ifm, ifm_row_indx + i, PW_LAST_W11_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[12], &ifm, ifm_row_indx + i, PW_LAST_W12_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[13], &ifm, ifm_row_indx + i, PW_LAST_W13_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[14], &ifm, ifm_row_indx + i, PW_LAST_W14_BRAM, w_row_indx + i);
+        //                             pw_pe_compute(&pw_last_pe_arr[15], &ifm, ifm_row_indx + i, PW_LAST_W15_BRAM, w_row_indx + i);
+        //                         }
+        //                         #pragma omp section
+        //                         {
+        //                             if(pingpong_row_loaded < PW_LAST_CIN * NUM_OF_BRAM / BRAM_WIDTH_IN_BYTE){
+        //                                 int dram_start_addr = pw_last_start_addr + (tile + 1) * PW_LAST_CIN * NUM_OF_PE + pingpong_row_loaded * 16;
+        //                                 int bram_indx = pingpong_row_loaded / (PW_LAST_CIN / NUM_OF_PE);
+        //                                 load_bram(DRAM, dram_start_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], w_row_indx_to_write + i);
+        //                                 pingpong_row_loaded++;
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 // ================================================
+        //                 int row_needed_for_one_pixel_depth_output = PW_C_OUT / BRAM_WIDTH_IN_BYTE;
+        //                 int acc_row = (ho * PW_W_out + wo) * row_needed_for_one_pixel_depth_output + tile; 
+        //                 pw_pe_array_store(pw_last_pe_arr, PW_LAST_ACC_BRAM, acc_row);
+        //             }
+        //             pw_row_compete++;
+        //         }
+        //         // Hoan doi vai tro ping va pong
+        //         ping_state = 1 - ping_state;
+        //         pong_state = 1 - pong_state;
+        //     }
+
+        //     printf("[LOGS] Done the last PW\n");
+        // }
+        #pragma omp section
+        {
+            // printf("[LOGS] Starting add op....\n");
+            // printf("[LOGS] Done add\n");
         }
     }
 
@@ -430,7 +558,16 @@ int main(){
 
     print_bram_to_file("output/acc.txt", PWCONV_ACC_BRAM, 14 * 14 * 384 / 16);
     print_bram_to_file("output/dw_acc.txt", DW_ACC_BRAM, 14 * 14 * 384 / 16);
+    print_bram_to_file_int8("output/gap_acc.txt", GAP_BRAM, 16, 384/16);
+    print_bram_to_file("output/se_pw1.txt", SE_PW_1_ACC_BRAM, 2);
+    print_bram_to_file("output/se_pw2.txt", SE_PW_2_ACC_BRAM, 384/16);
+    print_bram_to_file("output/mul.txt", MUL_BRAM, 14 * 14 * 384 / 16);
+    print_bram_to_file("output/pw_last_acc.txt", PW_LAST_ACC_BRAM, 14 * 14 * 384 / 16);
+
+
     // print_bram(GAP_BRAM);
     print_bram_32_bit(SE_PW_1_ACC_BRAM);
     print_bram_32_bit(SE_PW_2_ACC_BRAM);
+    print_bram_32_bit(MUL_BRAM);
+    print_bram_32_bit(PW_LAST_ACC_BRAM);
 }

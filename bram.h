@@ -74,8 +74,31 @@ int8_t (*se_pw_2_w_brams[4])[16] = {
 };
 int32_t SE_PW_2_ACC_BRAM[8192][16];
 int32_t (*SE_PW_2_ACC_4_WIDTH_BRAM)[4] = (int32_t (*)[4])SE_PW_2_ACC_BRAM;
-
-// ============================== 5. Helper function for bram ====================================
+// ============================== 5. BRAM của MUL =============================
+int32_t MUL_BRAM[8192][16];
+// ============================== 6. BRAM của PW_LAST =============================
+int8_t PW_LAST_W0_BRAM[1152][16];
+int8_t PW_LAST_W1_BRAM[1152][16];
+int8_t PW_LAST_W2_BRAM[1152][16];
+int8_t PW_LAST_W3_BRAM[1152][16];
+int8_t PW_LAST_W4_BRAM[1152][16];
+int8_t PW_LAST_W5_BRAM[1152][16];
+int8_t PW_LAST_W6_BRAM[1152][16];
+int8_t PW_LAST_W7_BRAM[1152][16];
+int8_t PW_LAST_W8_BRAM[1152][16];
+int8_t PW_LAST_W9_BRAM[1152][16];
+int8_t PW_LAST_W10_BRAM[1152][16];
+int8_t PW_LAST_W11_BRAM[1152][16];
+int8_t PW_LAST_W12_BRAM[1152][16];
+int8_t PW_LAST_W13_BRAM[1152][16];
+int8_t PW_LAST_W14_BRAM[1152][16];
+int8_t PW_LAST_W15_BRAM[1152][16];
+int8_t (*pw_last_w_brams[16])[16] = {
+        PW_LAST_W0_BRAM, PW_LAST_W1_BRAM, PW_LAST_W2_BRAM, PW_LAST_W3_BRAM, PW_LAST_W4_BRAM, PW_LAST_W5_BRAM, PW_LAST_W6_BRAM, PW_LAST_W7_BRAM,
+        PW_LAST_W8_BRAM, PW_LAST_W9_BRAM, PW_LAST_W10_BRAM, PW_LAST_W11_BRAM, PW_LAST_W12_BRAM, PW_LAST_W13_BRAM, PW_LAST_W14_BRAM, PW_LAST_W15_BRAM
+    };
+int32_t PW_LAST_ACC_BRAM[8192][16];
+// ============================== 7. Helper function for bram ====================================
 /*
 @brief Hàm mô phòng việc load từ DRAM vào BRAM bằng DMA.
 @param[in] dram Tên dram
@@ -171,6 +194,7 @@ int print_bram_to_file_int8(const char *file_name, int8_t (*bram)[16], int width
             fprintf(f, "%" PRId8 "\n", bram[i][j]);
         }
     }
+    fclose(f);
     printf("[LOGS] Viet thanh cong bram vao file\n");
     return SYS_OK;
 }

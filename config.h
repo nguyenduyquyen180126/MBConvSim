@@ -25,8 +25,8 @@ enum status_t{
 #define BRAM_WIDTH_IN_BIT 128
 #define BRAM_WIDTH_IN_BYTE 16
 #define PIXEL_DAT_SIZE 8
-#define PW_WEIGHT_START_ADDR PW_C_IN * PW_H_in * PW_W_in
 
+#define PW_WEIGHT_START_ADDR PW_C_IN * PW_H_in * PW_W_in
 #define DW_H_IN 14
 #define DW_W_IN 14
 #define DW_C_IN 384
@@ -49,5 +49,17 @@ enum status_t{
 
 #define SE_PW_2_CIN 24
 #define SE_PW_2_COUT 384
+
+#define PW_LAST_CIN 384
+#define PW_LAST_COUT 24
+#define PW_LAST_H 14
+#define PW_LAST_W 14
+#define SE_PW_2_COUT 384
+
+#define PW_LAST_CIN 384
+#define PW_LAST_COUT 24
+#define PW_LAST_H 14
+#define PW_LAST_W 14
+#define PW_LAST_COUT 24
 
 #endif

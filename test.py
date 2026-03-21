@@ -37,28 +37,30 @@ if __name__ == '__main__':
     # with open('test/se_pw1_out_1_1_24.txt', 'w') as f:
     #     for c in range(C):
     #         print(output[0, c, 0, 0], file=f)
-    pw_weight = rng.integers(-128, 127, size=(384, 24, 1, 1))
-    input = np.ndarray((1, 24, 1, 1))
-    with open('test/se_pw1_out_1_1_24.txt', 'r') as f:
-        for c in range(24):
-            input[0, c, 0, 0] = int(f.readline().strip())
+    pw_weight = rng.integers(-128, 127, (24, 384, 1, 1)).astype(np.int8)
+    print(pw_weight)
+    input = np.ndarray((1, 14, 14, 384))
+    with open('output/mul.txt', 'r') as f:
+        for h in range(14):
+            for w in range(14):
+                for c in range(384):
+                    input[0, h, w, c] = int(f.readline().strip())
     input = input.astype(np.int8)
-    pw_conv = nn.Conv2d(24, 384, kernel_size=1, bias=False)
+    print(input)
+    pw_conv = nn.Conv2d(384, 24, kernel_size=1, bias=False)
     with torch.no_grad():
         pw_conv.weight.copy_(torch.from_numpy(pw_weight).float())
-    output = pw_conv(torch.from_numpy(input).float())
+    input = torch.from_numpy(input).permute(0, 3, 1, 2).float()
+    output = pw_conv(input)
+    print(output)
+    with open('test/pw_w_last.txt', 'w') as f:
+        for cin in range(384):
+            for cout in range(24):
+                print(pw_weight[cout, cin, 0, 0], file=f)
     output = output.detach().numpy()
     output = output.astype(np.int32)
-    print(input)
-
-    print(pw_weight)
-    COUT, CIN, _, _ = pw_weight.shape
-    with open('test/se_pw2_w24_384.txt', 'w') as f:
-        for cout in range(COUT):
-            for cin in range(CIN):
-                print(pw_weight[cout, cin, 0, 0], file=f)
-    print(output)
-    _, C, _, _ = output.shape
-    with open('test/se_pw2_out_384.txt', 'w') as f:
-        for c in range(C):
-            print(output[0, c, 0, 0], file=f)
+    with open('test/pw_out_last.txt', 'w') as f:
+        for h in range(14):
+            for w in range(14):
+                for c in range(24):
+                    print(output[0, c, h, w], file=f)

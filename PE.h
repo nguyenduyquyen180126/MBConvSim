@@ -63,12 +63,17 @@ void pw_pe_print(struct PWCONV_PE *pe){
     printf("out: \n");
     printf("%"PRId32" ", pe->out);
 }
-// PE Array 
+// ========================== PEConv Array ========================= 
 struct PWCONV_PE pw_pe_array[16];
 
-void pw_pe_array_store(struct PWCONV_PE *pe_array, int bram_index){
+void pw_pe_array_store(struct PWCONV_PE *pe_array, int32_t (*acc_bram)[16], int bram_index){
     for(int i = 0; i < 16; i++){
-        PWCONV_ACC_BRAM[bram_index][i] = pe_array[i].out;
+        acc_bram[bram_index][i] = pe_array[i].out;
+    }
+}
+void pw_pe_array_store_to_bram(struct PWCONV_PE *pe_array, int32_t (*bram)[16], int bram_index){
+    for(int i = 0; i < 16; i++){
+        bram[bram_index][i] = pe_array[i].out;
     }
 }
 void pw_pe_array_reset_acc(struct PWCONV_PE *pe_array){
@@ -112,31 +117,19 @@ void dw_pe_arr_store(struct DW_PE *pe_array, int acc_row_addr){
     }
 }
 // ================== 3. PE của SE_PW ====================
-struct SE_PW{
-    int8_t ifm[16];
-    int8_t weight[16];
-    int32_t acc;
-};
-void se_pw_compute(struct SE_PW * pe, int8_t (*ifm)[16], int ifm_row, int8_t (*weight)[16], int w_row){
-    memcpy(pe->ifm, ifm + ifm_row, BRAM_WIDTH_IN_BYTE);
-    memcpy(pe->weight, weight + w_row, BRAM_WIDTH_IN_BYTE);
-    for(int i = 0; i < 16; i++){
-        pe->acc += pe->ifm[i] * pe->weight[i];
-    }
-}
-
-struct SE_PW se_pw_pe_1_arr[4];
-struct SE_PW se_pw_pe_2_arr[4];
-void se_pw_reset(struct SE_PW *pe_arr){
+struct PWCONV_PE se_pw_pe_1_arr[4];
+struct PWCONV_PE se_pw_pe_2_arr[4];
+void se_pw_reset(struct PWCONV_PE *pe_arr){
     for(int i = 0; i < 4; i++){
-        pe_arr[i].acc = 0;
+        pe_arr[i].out = 0;
     }
 }
-void se_pw_store(struct SE_PW *pe_arr, int32_t (*acc_bram)[16], int bram_addr){
+void se_pw_store(struct PWCONV_PE *pe_arr, int32_t (*acc_bram)[16], int bram_addr){
     int32_t *acc_bram_flatten = (int32_t *)acc_bram;
     for(int i = 0; i < 4; i++){
-        acc_bram_flatten[bram_addr + i] = pe_arr[i].acc;
+        acc_bram_flatten[bram_addr + i] = pe_arr[i].out;
     }
 }
-
+// ====================== 4. PE của PW_LAST ===================
+struct PWCONV_PE pw_last_pe_arr[16];
 #endif
