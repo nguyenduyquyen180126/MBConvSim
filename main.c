@@ -11,6 +11,7 @@
 
 
 int main(){
+    omp_set_max_active_levels(2);
     printf("====================================== Bat dau ========================================\n");
     // ======================= 1. Mô phỏng của lớp point wise conv =====================
     // ============= Load to dram ==============
@@ -107,6 +108,9 @@ int main(){
     volatile int dw_pixel_complete = 0;
     volatile int gap_tile_complete = 0; // Xong 16 kenh
     volatile int se_dw_1_complete = 0;
+    volatile int se_pw_2_complete = 0;
+    volatile int mul_chunk_complete = 0;
+
 
     #pragma omp parallel sections
     {
@@ -116,10 +120,16 @@ int main(){
             int pong_state = WRITE;
             printf("[LOGS] Starting PW computation loops...\n");
             for(int tile = 0; tile < PW_NUM_OF_FILTER / NUM_OF_PE; tile++){ // Tính song song 16 kênh do đó chỉ cần tính C_OUT / PARALLEL lần.
+                int compute_done = 1;
+                int bram_load_done = 1;
                 #pragma omp parallel sections
                 {
                     #pragma omp section
                     {
+                        while(bram_load_done == 0){
+                            usleep(1);
+                        }
+                        compute_done = 0;
                         int pingpong_row_loaded = 0;
                         for(int ho = 0; ho < PW_H_out; ho++){
                             for(int wo = 0; wo < PW_W_out; wo++){
@@ -156,12 +166,17 @@ int main(){
                                 int acc_row = (ho * PW_W_out + wo) * row_needed_for_one_pixel_depth_output + tile; //(Hàng bắt đầu + số hàng offset)
                                 pw_pe_array_store(pw_pe_array, PWCONV_ACC_BRAM, acc_row);
                             }
+                            #pragma omp atomic update
                             pw_row_compete++;
                         }
+                        compute_done = 1;
                     }
                     #pragma omp section
                     {
-                        // Write code to load next 16 filter
+                        while(compute_done == 0){
+                            usleep(1);
+                        }
+                        bram_load_done = 0;
                         if(tile < (PW_NUM_OF_FILTER / NUM_OF_PE) - 1){
                             int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
                             int rows_per_bram = PW_C_IN / BRAM_WIDTH_IN_BYTE;
@@ -174,6 +189,7 @@ int main(){
                                 }
                             }
                         }
+                        bram_load_done = 1;
                     }
                 }
                 // Hoan doi vai tro ping va pong
@@ -196,7 +212,7 @@ int main(){
                     
                     int needed_compete_row = tile * PW_H_out + max_needed_row;
                     while(pw_row_compete <= needed_compete_row){
-                        // usleep(1);
+                        usleep(1);
                     }
 
                     for(int wo = 0; wo < DW_W_OUT; wo++){
@@ -263,11 +279,14 @@ int main(){
                         }
                         int acc_bram_row_addr = (ho * DW_W_OUT + wo) * (DW_C_OUT / NUM_OF_PE) + tile;
                         dw_pe_arr_store(dw_pe_arr, acc_bram_row_addr);
+                        #pragma omp atomic update
                         dw_pixel_complete++;
                     }
                 }
             }
             printf("[LOGS] DONE DW loop\n");
+            print_bram_to_file("output/dw_acc.txt", DW_ACC_BRAM, 14 * 14 * 384 / 16);
+
         }
         #pragma omp section
         {
@@ -278,7 +297,7 @@ int main(){
                 for(int i = 0; i < DW_H_OUT * DW_W_OUT; i++){
                     
                     while(dw_pixel_complete <= i + tile * DW_H_OUT * DW_W_OUT){
-                        //usleep(1);
+                        usleep(1);
                     }
 
                     // Lay hang ra tu BRAM DW
@@ -325,6 +344,7 @@ int main(){
                 gap_acc[15] /= DW_W_OUT * DW_H_OUT;
                 
                 gap_acc_store(gap_acc, GAP_BRAM, tile);
+                #pragma omp atomic update
                 gap_tile_complete++;
             }
             print_bram_to_file_int8("output/gap_acc.txt", GAP_BRAM, 16, DW_C_OUT / BRAM_WIDTH_IN_BYTE);
@@ -343,15 +363,18 @@ int main(){
                 int row_start_to_read = (ping_state == READ) ? ping_start_row : pong_start_row;
                 int row_start_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
                 se_pw_reset(se_pw_pe_1_arr);
-
                 #pragma omp parallel sections
                 {
                     #pragma omp section
                     {
+                        
                         for(int row_ifm = 0; row_ifm < (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row_ifm++){
+                            // int wait_cnt = 0;
                             while(gap_tile_complete <= row_ifm){
-                                // usleep(1);
+                                usleep(1);
+                                // if(wait_cnt++ % 10000000 == 0) printf("[DEBUG] SE1 waiting for GAP: need %d, have %d\n", row_ifm, gap_tile_complete);
                             }
+                            
                             pw_pe_compute(&se_pw_pe_1_arr[0], GAP_BRAM, row_ifm, SE_PW_1_W1_BRAM, row_start_to_read + row_ifm);
                             pw_pe_compute(&se_pw_pe_1_arr[1], GAP_BRAM, row_ifm, SE_PW_1_W2_BRAM, row_start_to_read + row_ifm);
                             pw_pe_compute(&se_pw_pe_1_arr[2], GAP_BRAM, row_ifm, SE_PW_1_W3_BRAM, row_start_to_read + row_ifm);
@@ -360,6 +383,7 @@ int main(){
                     }
                     #pragma omp section
                     {
+                        // Load Section
                         if(row_ofm + 1 < SE_PW_1_COUT / NUM_OF_SE_PE){
                             for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
                                 for(int row = 0; row < (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row++){
@@ -375,10 +399,11 @@ int main(){
                 
                 ping_state = 1 - ping_state;
                 pong_state = 1 - pong_state;
+                #pragma omp atomic update
                 se_dw_1_complete++;
             }
-            printf("[LOGS] Done SE Pointwise Conv\n");
-            
+            printf("[LOGS] Done SE Pointwise 1 Conv\n");
+            print_bram_to_file("output/se_pw1.txt", SE_PW_1_ACC_BRAM, 2);
         }
         #pragma omp section
         {
@@ -397,9 +422,15 @@ int main(){
                 {
                     #pragma omp section
                     {
+                        // Compute Section
                         for(int row_ifm = 0; row_ifm < (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row_ifm++){
-                            while(se_dw_1_complete <= row_ifm){
-                                // usleep(1);
+                            int needed_steps = (row_ifm + 1) * (BRAM_WIDTH_IN_BYTE / NUM_OF_SE_PE);
+                            if(needed_steps > (SE_PW_1_COUT / NUM_OF_SE_PE)) needed_steps = (SE_PW_1_COUT / NUM_OF_SE_PE);
+                            
+                            // int wait_cnt = 0;
+                            while(se_dw_1_complete < needed_steps){
+                                usleep(1);
+                                // if(wait_cnt++ % 10000000 == 0) printf("[DEBUG] SE2 waiting for SE1: need %d, have %d\n", needed_steps, se_dw_1_complete);
                             }
                             int32_t *ifm_32_bit = SE_PW_1_ACC_BRAM[row_ifm];
                             int8_t ifm_row[16];
@@ -415,6 +446,7 @@ int main(){
                     }
                     #pragma omp section
                     {
+                        // Load Section
                         if(row_ofm + 1 < SE_PW_2_COUT / NUM_OF_SE_PE){
                             for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
                                 for(int row = 0; row < (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row++){
@@ -430,17 +462,28 @@ int main(){
                 
                 ping_state = 1 - ping_state;
                 pong_state = 1 - pong_state;
+                #pragma omp atomic update
+                se_pw_2_complete++;
            
             }
-            printf("[LOGS] Done SE Pointwise Conv\n");
+            printf("[LOGS] Done SE Pointwise 2 Conv\n");
+            print_bram_to_file("output/se_pw2.txt", SE_PW_2_ACC_BRAM, 384/16);
+
         }
         #pragma omp section
         {
             printf("[LOGS] Starting pointwise MUL\n");
             for(int se_out = 0; se_out < DW_C_OUT / BRAM_WIDTH_IN_BYTE; se_out++){
-                
+                int expected_se_steps = (se_out + 1) * (BRAM_WIDTH_IN_BYTE / NUM_OF_SE_PE);
+                while(se_pw_2_complete < expected_se_steps){
+                    usleep(1);
+                }
                 for(int row_indx_in_16_channel = 0; row_indx_in_16_channel < DW_H_OUT * DW_W_OUT; row_indx_in_16_channel++){
                     
+                    while(dw_pixel_complete < se_out * (DW_H_OUT * DW_W_OUT) + row_indx_in_16_channel + 1){
+                        usleep(1);
+                    }
+
                     int8_t se_row[16];
                     for(int i = 0; i < 16; i++){
                         se_row[i] = (int8_t)SE_PW_2_ACC_BRAM[se_out][i];
@@ -470,9 +513,12 @@ int main(){
                     mul_act(&mul[15], se_row[15], dw_out[15]);
                     mul_store(MUL_BRAM, dw_data_idx);
                 }
-    
+                #pragma omp atomic update
+                mul_chunk_complete++;
             }
             printf("[LOGS] Done MUL\n");
+            print_bram_to_file("output/mul.txt", MUL_BRAM, 14 * 14 * 384 / 16);
+
         }
         #pragma omp section
         {
@@ -496,6 +542,9 @@ int main(){
                                 // ================ Tinh va load =================
                                 
                                 for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
+                                    while(mul_chunk_complete <= i){
+                                        // usleep(1);
+                                    }
                                     int32_t *SE_OUT_32_BIT = MUL_BRAM[ifm_row_indx + i];
                                     int8_t ifm[16];
                                     for(int j = 0; j < 16; j++){
@@ -527,7 +576,7 @@ int main(){
                         }
                     }
                     #pragma omp section
-                    {
+                    { // Load Section
                         if(tile < (PW_LAST_COUT / NUM_OF_PE) - 1){
                              int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
                              // Calculate start address for next tile
@@ -535,8 +584,8 @@ int main(){
 
                             for(int bram_indx = 0; bram_indx < NUM_OF_BRAM; bram_indx++){
                                 for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
-                                     int dram_addr = start_addr_next_tile + bram_indx * PW_LAST_CIN + i * BRAM_WIDTH_IN_BYTE;
-                                     load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], w_row_indx_to_write + i);
+                                    int dram_addr = start_addr_next_tile + bram_indx * PW_LAST_CIN + i * BRAM_WIDTH_IN_BYTE;
+                                    load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], w_row_indx_to_write + i);
                                 }
                             }
                         }
@@ -548,29 +597,24 @@ int main(){
             }
 
             printf("[LOGS] Done the last PW\n");
+            print_bram_to_file("output/pw_last_acc.txt", PW_LAST_ACC_BRAM, 14 * 14 * 96 / 16);
+
         }
         #pragma omp section
         {
-            // printf("[LOGS] Starting add op....\n");
-            // printf("[LOGS] Done add\n");
+            printf("[LOGS] Starting add op....\n");
+            printf("[LOGS] Done add\n");
         }
     }
 
     printf("[LOGS] ============ Done. =============\n");
     // print_bram_32_bit(DW_ACC_BRAM);
 
-    print_bram_to_file("output/acc.txt", PWCONV_ACC_BRAM, 14 * 14 * 384 / 16);
-    print_bram_to_file("output/dw_acc.txt", DW_ACC_BRAM, 14 * 14 * 384 / 16);
-    print_bram_to_file_int8("output/gap_acc.txt", GAP_BRAM, 16, 384/16);
-    print_bram_to_file("output/se_pw1.txt", SE_PW_1_ACC_BRAM, 2);
-    print_bram_to_file("output/se_pw2.txt", SE_PW_2_ACC_BRAM, 384/16);
-    print_bram_to_file("output/mul.txt", MUL_BRAM, 14 * 14 * 384 / 16);
-    print_bram_to_file("output/pw_last_acc.txt", PW_LAST_ACC_BRAM, 14 * 14 * 96 / 16);
 
 
     // print_bram(GAP_BRAM);
-    print_bram_32_bit(SE_PW_1_ACC_BRAM);
-    print_bram_32_bit(SE_PW_2_ACC_BRAM);
-    print_bram_32_bit(MUL_BRAM);
-    print_bram_32_bit(PW_LAST_ACC_BRAM);
+    // print_bram_32_bit(SE_PW_1_ACC_BRAM);
+    // print_bram_32_bit(SE_PW_2_ACC_BRAM);
+    // print_bram_32_bit(MUL_BRAM);
+    // print_bram_32_bit(PW_LAST_ACC_BRAM);
 }
