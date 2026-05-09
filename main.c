@@ -277,6 +277,7 @@ int main(){
                                 dw_pe_compute(&dw_pe_arr[13], ifm_row[13], weight_row[13]);
                                 dw_pe_compute(&dw_pe_arr[14], ifm_row[14], weight_row[14]);
                                 dw_pe_compute(&dw_pe_arr[15], ifm_row[15], weight_row[15]);
+
                             }
                         }
                         int acc_bram_row_addr = (ho * DW_W_OUT + wo) * (DW_C_OUT / NUM_OF_PE) + tile;
@@ -375,6 +376,7 @@ int main(){
                 {
                     #pragma omp section
                     {
+
                         for(int row_ifm = 0; row_ifm < (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row_ifm++){
                             // int wait_cnt = 0;
                             while(gap_tile_complete <= row_ifm){
@@ -387,6 +389,7 @@ int main(){
                             pw_pe_compute(&se_pw_pe_1_arr[2], GAP_BRAM, row_ifm, SE_PW_1_W3_BRAM, row_start_to_read + row_ifm);
                             pw_pe_compute(&se_pw_pe_1_arr[3], GAP_BRAM, row_ifm, SE_PW_1_W4_BRAM, row_start_to_read + row_ifm);
                         }
+                        
                     }
                     #pragma omp section
                     {
