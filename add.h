@@ -2,7 +2,7 @@
 #define ADD_H
 #include <stdint.h>
 #include <inttypes.h>
-int32_t OUTPUT[8000][16];
+int32_t OUTPUT[16384][16];
 struct ADD{
     int8_t a;
     int8_t b;

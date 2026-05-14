@@ -682,47 +682,49 @@ int main(int argc, char *argv[]){
         print_bram_to_file("output/pw_last_acc.txt", PW_LAST_ACC_BRAM, PW_LAST_H * PW_LAST_W * PW_LAST_COUT / BRAM_WIDTH_IN_BYTE);
 
         // ================================== Add ====================================
-        printf("[LOGS] Starting add op....\n");
         int total_tile_per_chuck = DW_H_OUT * DW_W_OUT;
         int num_of_chunk = PW_LAST_COUT / BRAM_WIDTH_IN_BYTE;
 
-        for(int tile = 0; tile < total_tile_per_chuck * num_of_chunk; tile++){
-            
-            
-            int current_chuck = tile / num_of_chunk;
-            int current_tile = tile % num_of_chunk;
-            int needed_count = current_tile * total_tile_per_chuck + current_chuck + 1;
+        if (DW_STRIDE == 1 && PW_C_IN == PW_LAST_COUT) {
+            printf("[LOGS] Starting add op (Residual)....\n");
+            for(int tile = 0; tile < total_tile_per_chuck * num_of_chunk; tile++){
+                add_reset();
+                int8_t *input = PWCONV_IFM_BRAM[tile];
+                
+                int32_t *temp = PW_LAST_ACC_BRAM[tile];
+                int8_t output[16];
+                for(int i = 0; i < 16; i++){
+                    output[i] = (int8_t)temp[i];
+                }
 
-            
-            add_reset();
-            int8_t *input = PWCONV_IFM_BRAM[tile];
-            
-            int32_t *temp = PW_LAST_ACC_BRAM[tile];
-            int8_t output[16];
-            for(int i = 0; i < 16; i++){
-                output[i] = (int8_t)temp[i];
+                add_compute(&add_arr[0], input[0], output[0]);
+                add_compute(&add_arr[1], input[1], output[1]);
+                add_compute(&add_arr[2], input[2], output[2]);
+                add_compute(&add_arr[3], input[3], output[3]);
+                add_compute(&add_arr[4], input[4], output[4]);
+                add_compute(&add_arr[5], input[5], output[5]);
+                add_compute(&add_arr[6], input[6], output[6]);
+                add_compute(&add_arr[7], input[7], output[7]);
+                add_compute(&add_arr[8], input[8], output[8]);
+                add_compute(&add_arr[9], input[9], output[9]);
+                add_compute(&add_arr[10], input[10], output[10]);
+                add_compute(&add_arr[11], input[11], output[11]);
+                add_compute(&add_arr[12], input[12], output[12]);
+                add_compute(&add_arr[13], input[13], output[13]);
+                add_compute(&add_arr[14], input[14], output[14]);
+                add_compute(&add_arr[15], input[15], output[15]);
+
+                add_store(tile);
             }
-
-            add_compute(&add_arr[0], input[0], output[0]);
-            add_compute(&add_arr[1], input[1], output[1]);
-            add_compute(&add_arr[2], input[2], output[2]);
-            add_compute(&add_arr[3], input[3], output[3]);
-            add_compute(&add_arr[4], input[4], output[4]);
-            add_compute(&add_arr[5], input[5], output[5]);
-            add_compute(&add_arr[6], input[6], output[6]);
-            add_compute(&add_arr[7], input[7], output[7]);
-            add_compute(&add_arr[8], input[8], output[8]);
-            add_compute(&add_arr[9], input[9], output[9]);
-            add_compute(&add_arr[10], input[10], output[10]);
-            add_compute(&add_arr[11], input[11], output[11]);
-            add_compute(&add_arr[12], input[12], output[12]);
-            add_compute(&add_arr[13], input[13], output[13]);
-            add_compute(&add_arr[14], input[14], output[14]);
-            add_compute(&add_arr[15], input[15], output[15]);
-
-            add_store(tile);
+            printf("[LOGS] Done add\n");
+        } else {
+            printf("[LOGS] Skipping Residual Add (Stride > 1 or Channel Mismatch)\n");
+            for(int tile = 0; tile < total_tile_per_chuck * num_of_chunk; tile++){
+                for(int i = 0; i < 16; i++){
+                    OUTPUT[tile][i] = PW_LAST_ACC_BRAM[tile][i];
+                }
+            }
         }
-        printf("[LOGS] Done add\n");
 
     printf("[LOGS] ============ Done. =============\n");
     // print_bram_32_bit(DW_ACC_BRAM);
