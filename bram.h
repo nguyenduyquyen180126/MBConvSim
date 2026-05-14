@@ -39,7 +39,7 @@ int8_t PWCONV_W13_BRAM[1152][16];
 int8_t PWCONV_W14_BRAM[1152][16];
 int8_t PWCONV_W15_BRAM[1152][16];
 
-int32_t PWCONV_ACC_BRAM[16384][16];
+int8_t PWCONV_ACC_BRAM[16384][16];
 int8_t (*pwconv_w_brams[16])[16] = {
         PWCONV_W0_BRAM, PWCONV_W1_BRAM, PWCONV_W2_BRAM, PWCONV_W3_BRAM, PWCONV_W4_BRAM, PWCONV_W5_BRAM, PWCONV_W6_BRAM, PWCONV_W7_BRAM,
         PWCONV_W8_BRAM, PWCONV_W9_BRAM, PWCONV_W10_BRAM, PWCONV_W11_BRAM, PWCONV_W12_BRAM, PWCONV_W13_BRAM, PWCONV_W14_BRAM, PWCONV_W15_BRAM
@@ -48,7 +48,7 @@ int8_t (*pwconv_w_brams[16])[16] = {
 
 // ============================== 2. BRAM của DWConv ===============================
 int8_t DW_W_BRAM[1152][16];
-int32_t DW_ACC_BRAM[16384][16];
+int8_t DW_ACC_BRAM[16384][16];
 
 // ============================== 3. BRAM của GAP ==============================
 int8_t GAP_BRAM[1152][16];
@@ -62,8 +62,8 @@ int8_t SE_PW_1_W4_BRAM[1152][16];
 int8_t (*se_pw_1_w_brams[4])[16] = {
     SE_PW_1_W1_BRAM, SE_PW_1_W2_BRAM, SE_PW_1_W3_BRAM, SE_PW_1_W4_BRAM
 };
-int32_t SE_PW_1_ACC_BRAM[16384][16];
-int32_t (*SE_PW_1_ACC_4_WIDTH_BRAM)[4] = (int32_t (*)[4])SE_PW_1_ACC_BRAM;
+int8_t SE_PW_1_ACC_BRAM[16384][16];
+int8_t (*SE_PW_1_ACC_4_WIDTH_BRAM)[4] = (int8_t (*)[4])SE_PW_1_ACC_BRAM;
 // ============================== 5. BRAM của SE PW2 =========================
 int8_t SE_PW_2_W1_BRAM[1152][16];
 int8_t SE_PW_2_W2_BRAM[1152][16];
@@ -72,10 +72,10 @@ int8_t SE_PW_2_W4_BRAM[1152][16];
 int8_t (*se_pw_2_w_brams[4])[16] = {
     SE_PW_2_W1_BRAM, SE_PW_2_W2_BRAM, SE_PW_2_W3_BRAM, SE_PW_2_W4_BRAM
 };
-int32_t SE_PW_2_ACC_BRAM[16384][16];
-int32_t (*SE_PW_2_ACC_4_WIDTH_BRAM)[4] = (int32_t (*)[4])SE_PW_2_ACC_BRAM;
+int8_t SE_PW_2_ACC_BRAM[16384][16];
+int8_t (*SE_PW_2_ACC_4_WIDTH_BRAM)[4] = (int8_t (*)[4])SE_PW_2_ACC_BRAM;
 // ============================== 5. BRAM của MUL =============================
-int32_t MUL_BRAM[16384][16];
+int8_t MUL_BRAM[16384][16];
 // ============================== 6. BRAM của PW_LAST =============================
 int8_t PW_LAST_W0_BRAM[1152][16];
 int8_t PW_LAST_W1_BRAM[1152][16];
@@ -97,7 +97,7 @@ int8_t (*pw_last_w_brams[16])[16] = {
         PW_LAST_W0_BRAM, PW_LAST_W1_BRAM, PW_LAST_W2_BRAM, PW_LAST_W3_BRAM, PW_LAST_W4_BRAM, PW_LAST_W5_BRAM, PW_LAST_W6_BRAM, PW_LAST_W7_BRAM,
         PW_LAST_W8_BRAM, PW_LAST_W9_BRAM, PW_LAST_W10_BRAM, PW_LAST_W11_BRAM, PW_LAST_W12_BRAM, PW_LAST_W13_BRAM, PW_LAST_W14_BRAM, PW_LAST_W15_BRAM
     };
-int32_t PW_LAST_ACC_BRAM[16384][16];
+int8_t PW_LAST_ACC_BRAM[16384][16];
 // ============================== 7. Helper function for bram ====================================
 /*
 @brief Hàm mô phòng việc load từ DRAM vào BRAM bằng DMA.
@@ -135,14 +135,6 @@ void print_bram(int8_t (*bram)[16]){
         }
         printf("\n");
     }
-    // printf("....\n");
-    // for(int i = 2045; i < 1152; i++){
-    //     printf("%4d: ", i);
-    //     for(int j = 0; j < 16; j++){
-    //         printf("%4" PRId32 " ", bram[i][j]);
-    //     }
-    //     printf("\n");
-    // }
     printf("\n");
 
 }
@@ -154,21 +146,13 @@ void print_bram_32_bit(int32_t (*bram)[16]){
         }
         printf("\n");
     }
-    // printf("....\n");
-    // for(int i = 2045; i < 1152; i++){
-    //     printf("%4d: ", i);
-    //     for(int j = 0; j < 16; j++){
-    //         printf("%4" PRId32 " ", bram[i][j]);
-    //     }
-    //     printf("\n");
-    // }
     printf("\n");
 
 }
 /*
-@brief Only for int32_t
+@brief Only for int8_t
 */
-int print_bram_to_file(const char *file_name, int32_t (*bram)[16], int num_of_row){
+int print_bram_to_file(const char *file_name, int8_t (*bram)[16], int num_of_row){
     FILE *f = fopen(file_name, "w");
     if(f == NULL){
         printf("[ERROR] Khong viet duoc bram vao file\n");
@@ -176,7 +160,7 @@ int print_bram_to_file(const char *file_name, int32_t (*bram)[16], int num_of_ro
     }
     for(int i = 0; i < num_of_row; i++){
         for(int j = 0; j < 16; j++){
-            fprintf(f, "%" PRId32 "\n", bram[i][j]);
+            fprintf(f, "%" PRId8 "\n", bram[i][j]);
         }
     }
     fclose(f);

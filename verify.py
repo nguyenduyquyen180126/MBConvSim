@@ -211,14 +211,16 @@ def run_test(config):
     sim_final = read_bram_output("output.txt", (h_out, w_out, c_out))
 
     success = True
-    success &= check("PW1", pw1_out_32, sim_pw1)
-    success &= check("DW", dw_out_32, sim_dw)
+    success &= check("PW1", pw1_out_8, sim_pw1)
+    success &= check("DW", dw_out_8, sim_dw)
     success &= check("GAP", gap_out_sim, sim_gap)
-    success &= check("SE1", se1_out_32, sim_se1)
-    success &= check("SE2", se2_out_32, sim_se2)
-    success &= check("MUL", mul_out_32, sim_mul)
-    success &= check("PW_LAST", pw_last_out_32, sim_pw_last)
-    success &= check("FINAL", final_out_32, sim_final)
+    success &= check("SE1", se1_out_8, sim_se1)
+    success &= check("SE2", se2_out_8, sim_se2)
+    success &= check("MUL", mul_out_8, sim_mul)
+    success &= check("PW_LAST", pw_last_out_8, sim_pw_last)
+    
+    final_out_8 = final_out_32.astype(np.int8)
+    success &= check("FINAL", final_out_8, sim_final)
     
     return success
 

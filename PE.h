@@ -26,13 +26,6 @@ void pw_pe_load(struct PWCONV_PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_
     memcpy(pe->ifm, ifm_bram + ifm_row, BRAM_WIDTH_IN_BYTE);
     memcpy(pe->weight, weight_bram + w_row, BRAM_WIDTH_IN_BYTE);
 }
-// void pe_compute(struct PE* pe){
-//     int32_t temp = 0;
-//     for(int i = 0; i < 16; i++){
-//         temp += pe->ifm[i] * pe->weight[i];
-//     }
-//     pe->out += temp;
-// }
 /*
     Hàm load và tính các PE
 */
@@ -66,14 +59,14 @@ void pw_pe_print(struct PWCONV_PE *pe){
 // ========================== PEConv Array ========================= 
 struct PWCONV_PE pw_pe_array[16];
 
-void pw_pe_array_store(struct PWCONV_PE *pe_array, int32_t (*acc_bram)[16], int bram_index){
+void pw_pe_array_store(struct PWCONV_PE *pe_array, int8_t (*acc_bram)[16], int bram_index){
     for(int i = 0; i < 16; i++){
-        acc_bram[bram_index][i] = pe_array[i].out;
+        acc_bram[bram_index][i] = (int8_t)pe_array[i].out;
     }
 }
-void pw_pe_array_store_to_bram(struct PWCONV_PE *pe_array, int32_t (*bram)[16], int bram_index){
+void pw_pe_array_store_to_bram(struct PWCONV_PE *pe_array, int8_t (*bram)[16], int bram_index){
     for(int i = 0; i < 16; i++){
-        bram[bram_index][i] = pe_array[i].out;
+        bram[bram_index][i] = (int8_t)pe_array[i].out;
     }
 }
 void pw_pe_array_reset_acc(struct PWCONV_PE *pe_array){
@@ -84,11 +77,11 @@ void pw_pe_array_reset_acc(struct PWCONV_PE *pe_array){
 /*
     Debug acc
 */
-void print_acc_bram(int32_t (*bram)[16]){
+void print_acc_bram(int8_t (*bram)[16]){
     for(int i = 0; i < 9; i++){
         printf("%4d: ", i);
         for(int j = 0; j < 16; j++){
-            printf("%4"PRId32" ", bram[i][j]);
+            printf("%4"PRId8" ", bram[i][j]);
         }
         printf("\n");
     }
@@ -113,7 +106,7 @@ void dw_pe_arr_reset(){
 }
 void dw_pe_arr_store(struct DW_PE *pe_array, int acc_row_addr){
     for(int i = 0; i < 16; i++){
-        DW_ACC_BRAM[acc_row_addr][i] = pe_array[i].acc;
+        DW_ACC_BRAM[acc_row_addr][i] = (int8_t)pe_array[i].acc;
     }
 }
 // ================== 3. PE của SE_PW ====================
@@ -124,10 +117,10 @@ void se_pw_reset(struct PWCONV_PE *pe_arr){
         pe_arr[i].out = 0;
     }
 }
-void se_pw_store(struct PWCONV_PE *pe_arr, int32_t (*acc_bram)[16], int bram_addr){
-    int32_t *acc_bram_flatten = (int32_t *)acc_bram;
+void se_pw_store(struct PWCONV_PE *pe_arr, int8_t (*acc_bram)[16], int bram_addr){
+    int8_t *acc_bram_flatten = (int8_t *)acc_bram;
     for(int i = 0; i < 4; i++){
-        acc_bram_flatten[bram_addr + i] = pe_arr[i].out;
+        acc_bram_flatten[bram_addr + i] = (int8_t)pe_arr[i].out;
     }
 }
 // ====================== 4. PE của PW_LAST ===================
