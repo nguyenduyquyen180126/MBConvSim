@@ -9,51 +9,48 @@ enum status_t{
     SYS_NOT_IMPLIMENT = -2,
     SYS_ERROR = -3
 };
-#define PW_C_IN 96
-#define PW_C_OUT 384
-#define PARALLEL 16
-#define NUM_OF_PE 16
-#define NUM_OF_BRAM 16
-#define PW_H_in 14
-#define PW_W_in 14
-#define PW_H_out 14
-#define PW_W_out 14
-#define PW_FILTER_SIZE 96
-#define PW_FILTER_DEPTH 96
-#define PW_NUM_OF_FILTER 384
-#define DMA_BW 128
-#define BRAM_WIDTH_IN_BIT 128
-#define BRAM_WIDTH_IN_BYTE 16
-#define PIXEL_DAT_SIZE 8
 
-#define PW_WEIGHT_START_ADDR PW_C_IN * PW_H_in * PW_W_in
-#define DW_H_IN 14
-#define DW_W_IN 14
-#define DW_C_IN 384
-#define DW_H_OUT 14
-#define DW_W_OUT 14
-#define DW_C_OUT 384
-#define DW_H_K 3
-#define DW_W_K 3
-#define DW_C_K 1
-#define DW_NUM_OF_K 384
-#define DW_STRIDE 1
+extern int PW_C_IN;
+extern int PW_C_OUT;
+extern int PARALLEL;
+extern int NUM_OF_PE;
+extern int NUM_OF_BRAM;
+extern int PW_H_in;
+extern int PW_W_in;
+extern int PW_H_out;
+extern int PW_W_out;
+extern int PW_FILTER_SIZE;
+extern int PW_FILTER_DEPTH;
+extern int PW_NUM_OF_FILTER;
+extern int DMA_BW;
+extern int BRAM_WIDTH_IN_BIT;
+extern int BRAM_WIDTH_IN_BYTE;
+extern int PIXEL_DAT_SIZE;
 
+extern int PW_WEIGHT_START_ADDR;
+extern int DW_H_IN;
+extern int DW_W_IN;
+extern int DW_C_IN;
+extern int DW_H_OUT;
+extern int DW_W_OUT;
+extern int DW_C_OUT;
+extern int DW_H_K;
+extern int DW_W_K;
+extern int DW_C_K;
+extern int DW_NUM_OF_K;
+extern int DW_STRIDE;
 
+extern int NUM_OF_SE_PE;
+extern int NUM_OF_SE_BRAM;
+extern int SE_PW_1_CIN;
+extern int SE_PW_1_COUT;
 
-#define NUM_OF_SE_PE 4
-#define NUM_OF_SE_BRAM 4
-#define SE_PW_1_CIN 384
-#define SE_PW_1_COUT 24
+extern int SE_PW_2_CIN;
+extern int SE_PW_2_COUT;
 
-
-#define SE_PW_2_CIN 24
-#define SE_PW_2_COUT 384
-
-#define PW_LAST_CIN 384
-#define PW_LAST_H 14
-#define PW_LAST_W 14
-#define PW_LAST_COUT 96
-
+extern int PW_LAST_CIN;
+extern int PW_LAST_H;
+extern int PW_LAST_W;
+extern int PW_LAST_COUT;
 
 #endif

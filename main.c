@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "dram.h"
 #include "bram.h"
 #include "PE.h"
@@ -10,8 +12,102 @@
 #include "mul.h"
 #include "add.h"
 
+int PW_C_IN = 96;
+int PW_C_OUT = 384;
+int PARALLEL = 16;
+int NUM_OF_PE = 16;
+int NUM_OF_BRAM = 16;
+int PW_H_in = 14;
+int PW_W_in = 14;
+int PW_H_out = 14;
+int PW_W_out = 14;
+int PW_FILTER_SIZE = 96;
+int PW_FILTER_DEPTH = 96;
+int PW_NUM_OF_FILTER = 384;
+int DMA_BW = 128;
+int BRAM_WIDTH_IN_BIT = 128;
+int BRAM_WIDTH_IN_BYTE = 16;
+int PIXEL_DAT_SIZE = 8;
 
-int main(){
+int PW_WEIGHT_START_ADDR = 96 * 14 * 14;
+int DW_H_IN = 14;
+int DW_W_IN = 14;
+int DW_C_IN = 384;
+int DW_H_OUT = 14;
+int DW_W_OUT = 14;
+int DW_C_OUT = 384;
+int DW_H_K = 3;
+int DW_W_K = 3;
+int DW_C_K = 1;
+int DW_NUM_OF_K = 384;
+int DW_STRIDE = 1;
+
+int NUM_OF_SE_PE = 4;
+int NUM_OF_SE_BRAM = 4;
+int SE_PW_1_CIN = 384;
+int SE_PW_1_COUT = 24;
+
+int SE_PW_2_CIN = 24;
+int SE_PW_2_COUT = 384;
+
+int PW_LAST_CIN = 384;
+int PW_LAST_H = 14;
+int PW_LAST_W = 14;
+int PW_LAST_COUT = 96;
+
+void parse_args(int argc, char *argv[]) {
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') {
+            char *name = argv[i] + 1;
+            if (i + 1 < argc) {
+                int val = atoi(argv[i+1]);
+                if (strcmp(name, "PW_C_IN") == 0) PW_C_IN = val;
+                else if (strcmp(name, "PW_C_OUT") == 0) PW_C_OUT = val;
+                else if (strcmp(name, "PARALLEL") == 0) PARALLEL = val;
+                else if (strcmp(name, "NUM_OF_PE") == 0) NUM_OF_PE = val;
+                else if (strcmp(name, "NUM_OF_BRAM") == 0) NUM_OF_BRAM = val;
+                else if (strcmp(name, "PW_H_in") == 0) PW_H_in = val;
+                else if (strcmp(name, "PW_W_in") == 0) PW_W_in = val;
+                else if (strcmp(name, "PW_H_out") == 0) PW_H_out = val;
+                else if (strcmp(name, "PW_W_out") == 0) PW_W_out = val;
+                else if (strcmp(name, "PW_FILTER_SIZE") == 0) PW_FILTER_SIZE = val;
+                else if (strcmp(name, "PW_FILTER_DEPTH") == 0) PW_FILTER_DEPTH = val;
+                else if (strcmp(name, "PW_NUM_OF_FILTER") == 0) PW_NUM_OF_FILTER = val;
+                else if (strcmp(name, "DMA_BW") == 0) DMA_BW = val;
+                else if (strcmp(name, "BRAM_WIDTH_IN_BIT") == 0) BRAM_WIDTH_IN_BIT = val;
+                else if (strcmp(name, "BRAM_WIDTH_IN_BYTE") == 0) BRAM_WIDTH_IN_BYTE = val;
+                else if (strcmp(name, "PIXEL_DAT_SIZE") == 0) PIXEL_DAT_SIZE = val;
+                else if (strcmp(name, "DW_H_IN") == 0) DW_H_IN = val;
+                else if (strcmp(name, "DW_W_IN") == 0) DW_W_IN = val;
+                else if (strcmp(name, "DW_C_IN") == 0) DW_C_IN = val;
+                else if (strcmp(name, "DW_H_OUT") == 0) DW_H_OUT = val;
+                else if (strcmp(name, "DW_W_OUT") == 0) DW_W_OUT = val;
+                else if (strcmp(name, "DW_C_OUT") == 0) DW_C_OUT = val;
+                else if (strcmp(name, "DW_H_K") == 0) DW_H_K = val;
+                else if (strcmp(name, "DW_W_K") == 0) DW_W_K = val;
+                else if (strcmp(name, "DW_C_K") == 0) DW_C_K = val;
+                else if (strcmp(name, "DW_NUM_OF_K") == 0) DW_NUM_OF_K = val;
+                else if (strcmp(name, "DW_STRIDE") == 0) DW_STRIDE = val;
+                else if (strcmp(name, "NUM_OF_SE_PE") == 0) NUM_OF_SE_PE = val;
+                else if (strcmp(name, "NUM_OF_SE_BRAM") == 0) NUM_OF_SE_BRAM = val;
+                else if (strcmp(name, "SE_PW_1_CIN") == 0) SE_PW_1_CIN = val;
+                else if (strcmp(name, "SE_PW_1_COUT") == 0) SE_PW_1_COUT = val;
+                else if (strcmp(name, "SE_PW_2_CIN") == 0) SE_PW_2_CIN = val;
+                else if (strcmp(name, "SE_PW_2_COUT") == 0) SE_PW_2_COUT = val;
+                else if (strcmp(name, "PW_LAST_CIN") == 0) PW_LAST_CIN = val;
+                else if (strcmp(name, "PW_LAST_H") == 0) PW_LAST_H = val;
+                else if (strcmp(name, "PW_LAST_W") == 0) PW_LAST_W = val;
+                else if (strcmp(name, "PW_LAST_COUT") == 0) PW_LAST_COUT = val;
+                i++;
+            }
+        }
+    }
+    // Update derived values
+    PW_WEIGHT_START_ADDR = PW_C_IN * PW_H_in * PW_W_in;
+}
+
+int main(int argc, char *argv[]){
+    parse_args(argc, argv);
     omp_set_max_active_levels(2);
     printf("====================================== Bat dau ========================================\n");
     // ======================= 1. Mô phỏng của lớp point wise conv =====================
@@ -50,8 +146,8 @@ int main(){
     // ================ Load DW weight ===============
     printf("[LOGS] Loading DW Weight BRAM...\n");
 
-    int dw_start_addr = 14 * 14 * 96 + 384 * 96;
-    for(int i = 0; i < 3*3*384 / BRAM_WIDTH_IN_BYTE; i++){
+    int dw_start_addr = PW_H_in * PW_W_in * PW_C_IN + PW_NUM_OF_FILTER * PW_FILTER_SIZE;
+    for(int i = 0; i < DW_H_K * DW_W_K * DW_NUM_OF_K / BRAM_WIDTH_IN_BYTE; i++){
         load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
     }
     printf("[LOGS] DW Weight BRAM Loaded\n");
@@ -68,7 +164,7 @@ int main(){
     // =================== Load SE PW1 =====================
     // Load truoc 4 cai filter vao cac BRAM
     printf("[LOGS] Starting SE PW1 load weight...\n");
-    int se_pw_1_start_addr = dw_start_addr + 3 * 3 * 384;
+    int se_pw_1_start_addr = dw_start_addr + DW_H_K * DW_W_K * DW_NUM_OF_K;
     int se_pw_block_size = (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE;
     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
         for(int row_indx = 0; row_indx < se_pw_block_size; row_indx++){ // row_indx goes from 0 to 23 (384/16)
@@ -79,7 +175,7 @@ int main(){
     printf("[LOGS] SE PW1 loaded\n");
     // ==================== Load SE PW2 =====================
     printf("[LOGS] Starting SE PW2 load weight...\n");
-    int se_pw_2_start_addr = se_pw_1_start_addr + 24 * 384;
+    int se_pw_2_start_addr = se_pw_1_start_addr + SE_PW_1_COUT * SE_PW_1_CIN;
     se_pw_block_size = (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE;
     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
         for(int row_indx = 0; row_indx < se_pw_block_size; row_indx++){ // row_indx = 0, 1
@@ -91,7 +187,7 @@ int main(){
     
 
     // ==================== Load PW LAST ====================
-    int pw_last_start_addr = se_pw_2_start_addr + 24 * 384;
+    int pw_last_start_addr = se_pw_2_start_addr + SE_PW_2_COUT * SE_PW_2_CIN;
     printf("[LOGS] Loading PW Weight BRAMs...\n");
    
     for(int bram_indx = 0; bram_indx < NUM_OF_BRAM; bram_indx++){
@@ -195,7 +291,7 @@ int main(){
             printf("[LOGS] PWConv Done.\n");
             fflush(stdout);
 
-            print_bram_to_file("output/acc.txt", PWCONV_ACC_BRAM, 14 * 14 * 384 / 16);
+            print_bram_to_file("output/acc.txt", PWCONV_ACC_BRAM, PW_H_out * PW_W_out * PW_C_OUT / BRAM_WIDTH_IN_BYTE);
         }
         #pragma omp section
         {
@@ -283,7 +379,7 @@ int main(){
                 }
             }
             printf("[LOGS] DONE DW loop\n");
-            print_bram_to_file("output/dw_acc.txt", DW_ACC_BRAM, 14 * 14 * 384 / 16);
+            print_bram_to_file("output/dw_acc.txt", DW_ACC_BRAM, DW_H_OUT * DW_W_OUT * DW_C_OUT / BRAM_WIDTH_IN_BYTE);
 
         }
         #pragma omp section
@@ -398,7 +494,7 @@ int main(){
             pong_state = 1 - pong_state;
         }
         printf("[LOGS] Done SE Pointwise 1 Conv\n");
-        print_bram_to_file("output/se_pw1.txt", SE_PW_1_ACC_BRAM, 2);
+        print_bram_to_file("output/se_pw1.txt", SE_PW_1_ACC_BRAM, (SE_PW_1_COUT + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE);
 
         // ============================================== SE PW 2 ==============================================
         compute_done = 1;
@@ -464,7 +560,7 @@ int main(){
             pong_state = 1 - pong_state;
         }
         printf("[LOGS] Done SE Pointwise 2 Conv\n");
-        print_bram_to_file("output/se_pw2.txt", SE_PW_2_ACC_BRAM, 384/16);
+        print_bram_to_file("output/se_pw2.txt", SE_PW_2_ACC_BRAM, (SE_PW_2_COUT + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE);
 
         // ================================================== MUL ==================================================
         printf("[LOGS] Starting pointwise MUL\n");
@@ -507,7 +603,7 @@ int main(){
 
         }
         printf("[LOGS] Done MUL\n");
-        print_bram_to_file("output/mul.txt", MUL_BRAM, 14 * 14 * 384 / 16);
+        print_bram_to_file("output/mul.txt", MUL_BRAM, DW_H_OUT * DW_W_OUT * DW_C_OUT / BRAM_WIDTH_IN_BYTE);
 
         // ========================================== Pointwise ==============================================
         printf("[LOGS] Starting the last PW ...\n");
@@ -583,7 +679,7 @@ int main(){
         }
 
         printf("[LOGS] Done the last PW\n");
-        print_bram_to_file("output/pw_last_acc.txt", PW_LAST_ACC_BRAM, 14 * 14 * 96 / 16);
+        print_bram_to_file("output/pw_last_acc.txt", PW_LAST_ACC_BRAM, PW_LAST_H * PW_LAST_W * PW_LAST_COUT / BRAM_WIDTH_IN_BYTE);
 
         // ================================== Add ====================================
         printf("[LOGS] Starting add op....\n");
@@ -638,5 +734,5 @@ int main(){
     // print_bram_32_bit(SE_PW_2_ACC_BRAM);
     // print_bram_32_bit(MUL_BRAM);
     // print_bram_32_bit(PW_LAST_ACC_BRAM);
-    print_bram_to_file("output.txt", OUTPUT, 14*14*96/16);
+    print_bram_to_file("output.txt", OUTPUT, PW_LAST_H * PW_LAST_W * PW_LAST_COUT / BRAM_WIDTH_IN_BYTE);
 }
