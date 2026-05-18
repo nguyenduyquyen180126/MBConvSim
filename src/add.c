@@ -1,13 +1,5 @@
-#ifndef ADD_H
-#define ADD_H
-#include <stdint.h>
-#include <inttypes.h>
+#include "add.h"
 int8_t OUTPUT[16384][16];
-struct ADD{
-    int8_t a;
-    int8_t b;
-    int32_t c;
-};
 struct ADD add_arr[16];
 void add_compute(struct ADD *add, int8_t a, int8_t b){
     add->a = a;
@@ -25,4 +17,3 @@ void add_store(int row_addr){
         OUTPUT[row_addr][i] = (int8_t)add_arr[i].c;
     }
 }
-#endif

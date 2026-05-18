@@ -1,16 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "dram.h"
-#include "bram.h"
-#include "PE.h"
+#include "include/dram.h"
+#include "include/bram.h"
+#include "include/PE.h"
 #include <stdint.h>
-#include "config.h"
+#include "include/config.h"
 #include <omp.h>
 #include <unistd.h>
-#include "gap.h"
-#include "mul.h"
-#include "add.h"
+#include "include/gap.h"
+#include "include/mul.h"
+#include "include/add.h"
 
 int PW_C_IN = 96;
 int PW_C_OUT = 384;

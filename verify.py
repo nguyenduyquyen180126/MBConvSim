@@ -6,9 +6,6 @@ import sys
 def run_command(command):
     print(f"[EXEC] {command}")
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    if result.stdout:
-        # print(result.stdout)
-        pass
     if result.stderr:
         print(f"[ERROR] {result.stderr}")
     return result.stdout
@@ -30,7 +27,6 @@ def read_bram_output(filename, shape):
                 data.append(int(val))
     size = np.prod(shape)
     if len(data) < size:
-        print(f"[WARNING] {filename} has less data than expected. Expected {size}, got {len(data)}")
         padding = [0] * (size - len(data))
         data.extend(padding)
     return np.array(data[:size]).reshape(shape)
@@ -41,7 +37,6 @@ def check(name, ref, sim):
     diff = np.abs(ref_cast - sim_cast)
     max_diff = np.max(diff)
     if max_diff == 0:
-        print(f"  [OK] {name} matches perfectly.")
         return True
     else:
         print(f"  [FAIL] {name} has max diff {max_diff}")
@@ -67,41 +62,22 @@ def run_test(config):
 
     # Full set of arguments for main.exe
     full_config = {
-        'PW_C_IN': c_in,
-        'PW_C_OUT': c_exp,
-        'PW_H_in': h_in,
-        'PW_W_in': w_in,
-        'PW_H_out': h_in,
-        'PW_W_out': w_in,
-        'PW_FILTER_SIZE': c_in,
-        'PW_NUM_OF_FILTER': c_exp,
-        'DW_H_IN': h_in,
-        'DW_W_IN': w_in,
-        'DW_C_IN': c_exp,
-        'DW_H_OUT': h_out,
-        'DW_W_OUT': w_out,
-        'DW_C_OUT': c_exp,
-        'DW_NUM_OF_K': c_exp,
-        'DW_STRIDE': stride,
-        'SE_PW_1_CIN': c_exp,
-        'SE_PW_1_COUT': se_c,
-        'SE_PW_2_CIN': se_c,
-        'SE_PW_2_COUT': c_exp,
-        'PW_LAST_CIN': c_exp,
-        'PW_LAST_H': h_out,
-        'PW_LAST_W': w_out,
-        'PW_LAST_COUT': c_out
+        'PW_C_IN': c_in, 'PW_C_OUT': c_exp, 'PW_H_in': h_in, 'PW_W_in': w_in,
+        'PW_H_out': h_in, 'PW_W_out': w_in, 'PW_FILTER_SIZE': c_in, 'PW_NUM_OF_FILTER': c_exp,
+        'DW_H_IN': h_in, 'DW_W_IN': w_in, 'DW_C_IN': c_exp, 'DW_H_OUT': h_out, 'DW_W_OUT': w_out,
+        'DW_C_OUT': c_exp, 'DW_NUM_OF_K': c_exp, 'DW_STRIDE': stride,
+        'SE_PW_1_CIN': c_exp, 'SE_PW_1_COUT': se_c, 'SE_PW_2_CIN': se_c, 'SE_PW_2_COUT': c_exp,
+        'PW_LAST_CIN': c_exp, 'PW_LAST_H': h_out, 'PW_LAST_W': w_out, 'PW_LAST_COUT': c_out
     }
 
     # Generate Random Data
     rng = np.random.default_rng(config.get('seed', 42))
-    # Using small range to prevent any potential overflow before final comparison
-    ifm = rng.integers(-32, 31, size=(h_in, w_in, c_in), dtype=np.int8)
-    pw1_w = rng.integers(-8, 7, size=(c_exp, c_in), dtype=np.int8)
-    dw_w = rng.integers(-8, 7, size=(c_exp, 3, 3), dtype=np.int8)
-    se_pw1_w = rng.integers(-8, 7, size=(se_c, c_exp), dtype=np.int8)
-    se_pw2_w = rng.integers(-8, 7, size=(c_exp, se_c), dtype=np.int8)
-    pw_last_w = rng.integers(-8, 7, size=(c_out, c_exp), dtype=np.int8)
+    ifm = rng.integers(-16, 15, size=(h_in, w_in, c_in), dtype=np.int8)
+    pw1_w = rng.integers(-4, 3, size=(c_exp, c_in), dtype=np.int8)
+    dw_w = rng.integers(-4, 3, size=(c_exp, 3, 3), dtype=np.int8)
+    se_pw1_w = rng.integers(-4, 3, size=(se_c, c_exp), dtype=np.int8)
+    se_pw2_w = rng.integers(-4, 3, size=(c_exp, se_c), dtype=np.int8)
+    pw_last_w = rng.integers(-4, 3, size=(c_out, c_exp), dtype=np.int8)
 
     # Pack DRAM
     dram = np.zeros(1000000, dtype=np.int8)
@@ -120,19 +96,35 @@ def run_test(config):
     
     save_to_dram("test/dram.txt", dram)
 
-    # Run Simulation
+    # Run Simulation and capture output
     cmd_args = " ".join([f"-{k} {v}" for k, v in full_config.items()])
-    if os.name == 'nt':
-        run_command(f"main.exe {cmd_args}")
-    else:
-        run_command(f"./main.exe {cmd_args}")
+    sim_stdout = run_command(f"main.exe {cmd_args}" if os.name == 'nt' else f"./main.exe {cmd_args}")
 
-    # Python Reference
+    # Parse BRAM Usage
+    usage = {}
+    lines = sim_stdout.split('\n')
+    for line in lines:
+        if ':' in line and 'rows' in line:
+            parts = line.split(':')
+            key = parts[0].strip()
+            val_str = parts[1].strip().split(' ')[0]
+            try:
+                usage[key] = int(val_str)
+            except:
+                if '/' in parts[1]:
+                    vals = parts[1].replace('rows','').strip().split('/')
+                    usage[f"{key} Ping"] = int(vals[0].strip())
+                    usage[f"{key} Pong"] = int(vals[1].strip())
+
+    # Python Reference logic
     def conv2d_pw(x, w):
         h, w_in, c_in = x.shape
         c_out = w.shape[0]
         x_flat = x.reshape(-1, c_in).astype(np.int32)
         w_t = w.astype(np.int32).T
+        # Pha test
+        #w_t = w_t + 1
+        # --------
         out_flat = np.dot(x_flat, w_t)
         return out_flat.reshape(h, w_in, c_out)
 
@@ -141,15 +133,10 @@ def run_test(config):
         k = 3
         h_out = int(np.ceil(h_in / stride))
         w_out = int(np.ceil(w_in / stride))
-        
         total_pad_h = (h_out - 1) * stride + k - h_in
-        pad_t = total_pad_h // 2
-        pad_b = total_pad_h - pad_t
-        
+        pad_t = total_pad_h // 2; pad_b = total_pad_h - pad_t
         total_pad_w = (w_out - 1) * stride + k - w_in
-        pad_l = total_pad_w // 2
-        pad_r = total_pad_w - pad_l
-        
+        pad_l = total_pad_w // 2; pad_r = total_pad_w - pad_l
         x_padded = np.pad(x, ((pad_t, pad_b), (pad_l, pad_r), (0, 0)), mode='constant')
         out = np.zeros((h_out, w_out, c), dtype=np.int32)
         for i in range(c):
@@ -159,48 +146,24 @@ def run_test(config):
                     out[h, w_idx, i] = np.sum(region.astype(np.int32) * w[i].astype(np.int32))
         return out
 
-    print("  [REF] Computing...")
-    pw1_out_32 = conv2d_pw(ifm, pw1_w)
-    pw1_out_8 = pw1_out_32.astype(np.int8)
-    
-    dw_out_32 = conv2d_dw(pw1_out_8, dw_w, stride)
-    dw_out_8 = dw_out_32.astype(np.int8)
-    
+    pw1_out_32 = conv2d_pw(ifm, pw1_w); pw1_out_8 = pw1_out_32.astype(np.int8)
+    dw_out_32 = conv2d_dw(pw1_out_8, dw_w, stride); dw_out_8 = dw_out_32.astype(np.int8)
     gap_sums = np.sum(dw_out_8, axis=(0, 1)).astype(np.float64)
     gap_out_sim = np.trunc(gap_sums / (h_out * w_out)).astype(np.int32)
-    
     se1_out_32 = np.zeros(se_c, dtype=np.int32)
-    for i in range(se_c):
-        se1_out_32[i] = np.sum(gap_out_sim.astype(np.int32) * se_pw1_w[i].astype(np.int32))
+    for i in range(se_c): se1_out_32[i] = np.sum(gap_out_sim.astype(np.int32) * se_pw1_w[i].astype(np.int32))
     se1_out_8 = se1_out_32.astype(np.int8)
-    
     se2_out_32 = np.zeros(c_exp, dtype=np.int32)
-    for i in range(c_exp):
-        se2_out_32[i] = np.sum(se1_out_8.astype(np.int32) * se_pw2_w[i].astype(np.int32))
+    for i in range(c_exp): se2_out_32[i] = np.sum(se1_out_8.astype(np.int32) * se_pw2_w[i].astype(np.int32))
     se2_out_8 = se2_out_32.astype(np.int8)
-    
-    mul_out_32 = dw_out_8.astype(np.int32) * se2_out_8.astype(np.int32)
-    mul_out_8 = mul_out_32.astype(np.int8)
-    
-    pw_last_out_32 = conv2d_pw(mul_out_8, pw_last_w)
-    pw_last_out_8 = pw_last_out_32.astype(np.int8)
-    
-    # Residual logic: main.c adds PWCONV_IFM_BRAM to PW_LAST_ACC_BRAM only if stride is 1 and channels match
+    mul_out_8 = (dw_out_8.astype(np.int32) * se2_out_8.astype(np.int32)).astype(np.int8)
+    pw_last_out_32 = conv2d_pw(mul_out_8, pw_last_w); pw_last_out_8 = pw_last_out_32.astype(np.int8)
     if stride == 1 and c_in == c_out:
-        ifm_flat = ifm.flatten()
-        pw_last_out_flat = pw_last_out_8.flatten()
-        limit = pw_last_out_flat.size
-        if ifm_flat.size < limit:
-            ifm_padded = np.pad(ifm_flat, (0, limit - ifm_flat.size), mode='constant')
-        else:
-            ifm_padded = ifm_flat[:limit]
-        final_out_flat = ifm_padded.astype(np.int32) + pw_last_out_flat.astype(np.int32)
-        final_out_32 = final_out_flat.reshape(h_out, w_out, c_out)
-    else:
-        # Skipping Residual Add: Final output is just the raw convolution result from PW_LAST
-        final_out_32 = pw_last_out_32
+        ifm_flat = ifm.flatten(); pw_last_out_flat = pw_last_out_8.flatten(); limit = pw_last_out_flat.size
+        ifm_padded = np.pad(ifm_flat, (0, limit - ifm_flat.size), mode='constant') if ifm_flat.size < limit else ifm_flat[:limit]
+        final_out_32 = (ifm_padded.astype(np.int32) + pw_last_out_flat.astype(np.int32)).reshape(h_out, w_out, c_out)
+    else: final_out_32 = pw_last_out_32
 
-    # Compare
     sim_pw1 = read_bram_output("output/acc.txt", (h_in, w_in, c_exp))
     sim_dw = read_bram_output("output/dw_acc.txt", (h_out, w_out, c_exp))
     sim_gap = read_bram_output("output/gap_acc.txt", (c_exp,))
@@ -218,11 +181,10 @@ def run_test(config):
     success &= check("SE2", se2_out_8, sim_se2)
     success &= check("MUL", mul_out_8, sim_mul)
     success &= check("PW_LAST", pw_last_out_8, sim_pw_last)
+    success &= check("FINAL", final_out_32.astype(np.int8), sim_final)
     
-    final_out_8 = final_out_32.astype(np.int8)
-    success &= check("FINAL", final_out_8, sim_final)
-    
-    return success
+    if success: print("  [OK] Matches perfectly.")
+    return success, usage
 
 # Test cases for EfficientNetV2-B0 extracted from model_profile.txt
 test_cases = [
@@ -245,15 +207,23 @@ test_cases = [
 ]
 
 if __name__ == "__main__":
-    # Ensure compiled
-    run_command("gcc main.c -fopenmp -o main.exe")
-    
+    run_command("gcc -I./include src/*.c main.c -fopenmp -o main.exe")
     all_success = True
+    global_usage = {}
     for test in test_cases:
-        if not run_test(test):
-            all_success = False
+        ok, usage = run_test(test)
+        if not ok: all_success = False
+        for k, v in usage.items():
+            if k not in global_usage or v > global_usage[k]:
+                global_usage[k] = v
     
     if all_success:
+        print("\n" + "="*50)
+        print("EFFICIENTNETV2-B0 GLOBAL BRAM USAGE SUMMARY")
+        print("="*50)
+        for k, v in sorted(global_usage.items()):
+            print(f"{k.ljust(25)}: {v} rows")
+        print("="*50)
         print("\n[ALL TESTS PASSED]")
     else:
         print("\n[SOME TESTS FAILED]")

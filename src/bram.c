@@ -1,17 +1,4 @@
-#ifndef BRAM_H
-#define BRAM_H
-#include <stdio.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <string.h>
-#include "dram.h"
-#include "config.h"
-
-// ========================== Ping pong config ===========================
-enum BRAM_STATE{
-    WRITE,
-    READ
-};
+#include "bram.h"
 
 int ping_start_row = 0;
 int pong_start_row = 576;
@@ -124,16 +111,7 @@ void update_max(int *max_var, int current_row) {
     if (current_row > *max_var) *max_var = current_row;
 }
 
-// ========================== Ping pong config ===========================
-/*
-@brief Hàm mô phòng việc load từ DRAM vào BRAM bằng DMA.
-@param[in] dram Tên dram
-@param[in] addr_dram Địa chỉ bắt đầu lấy dữ liệu theo byte dạng int8_t (0 lấy từ pixel dầu, 1 lấy từ pixel thứ 2)
-@param[in] trans_size_in_byte Kích thước truyền đi in byte (phải nhỏ hơn bằng 16 bytes)
-@param[in] bram Tên bram
-@param[in] addr_bram Địa chỉ hàng bram
-@return 1 nếu thành công, 0 nếu hỏng
-*/
+
 int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram)[16], int addr_bram){
     if(trans_size_in_byte > 16){
         printf("[ERROR] DMA không truyen đuoc qua 128 bits\n");
@@ -167,13 +145,7 @@ void __load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*b
     int8_t *bram_flatten = (int8_t *)bram;
     memcpy(bram_flatten + addr_bram, dram + addr_dram, trans_size_in_byte);
 }
-/*
-    Double buffering BRAM
-*/
 
-/*
-@brief Debug purpose funtion
-*/
 void print_bram(int8_t (*bram)[16]){
     for(int i = 0; i < 9; i++){
         printf("%4d: ", i);
@@ -196,9 +168,7 @@ void print_bram_32_bit(int32_t (*bram)[16]){
     printf("\n");
 
 }
-/*
-@brief Only for int8_t
-*/
+
 int print_bram_to_file(const char *file_name, int8_t (*bram)[16], int num_of_row){
     FILE *f = fopen(file_name, "w");
     if(f == NULL){
@@ -229,4 +199,3 @@ int print_bram_to_file_int8(const char *file_name, int8_t (*bram)[16], int width
     printf("[LOGS] Viet thanh cong bram vao file\n");
     return SYS_OK;
 }
-#endif
