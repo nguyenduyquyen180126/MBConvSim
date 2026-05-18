@@ -60,11 +60,15 @@ void pw_pe_print(struct PWCONV_PE *pe){
 struct PWCONV_PE pw_pe_array[16];
 
 void pw_pe_array_store(struct PWCONV_PE *pe_array, int8_t (*acc_bram)[16], int bram_index){
+    if (acc_bram == PWCONV_ACC_BRAM) update_max(&max_row_pw_acc, bram_index);
+    else if (acc_bram == PW_LAST_ACC_BRAM) update_max(&max_row_pw_last_acc, bram_index);
+    
     for(int i = 0; i < 16; i++){
         acc_bram[bram_index][i] = (int8_t)pe_array[i].out;
     }
 }
 void pw_pe_array_store_to_bram(struct PWCONV_PE *pe_array, int8_t (*bram)[16], int bram_index){
+    update_max(&max_row_pw_last_acc, bram_index);
     for(int i = 0; i < 16; i++){
         bram[bram_index][i] = (int8_t)pe_array[i].out;
     }
@@ -105,6 +109,7 @@ void dw_pe_arr_reset(){
     }
 }
 void dw_pe_arr_store(struct DW_PE *pe_array, int acc_row_addr){
+    update_max(&max_row_dw_acc, acc_row_addr);
     for(int i = 0; i < 16; i++){
         DW_ACC_BRAM[acc_row_addr][i] = (int8_t)pe_array[i].acc;
     }
@@ -118,6 +123,8 @@ void se_pw_reset(struct PWCONV_PE *pe_arr){
     }
 }
 void se_pw_store(struct PWCONV_PE *pe_arr, int8_t (*acc_bram)[16], int bram_addr){
+    if (acc_bram == SE_PW_1_ACC_BRAM) update_max(&max_row_se1_acc, (bram_addr + 3) / 16);
+    else if (acc_bram == SE_PW_2_ACC_BRAM) update_max(&max_row_se2_acc, (bram_addr + 3) / 16);
     int8_t *acc_bram_flatten = (int8_t *)acc_bram;
     for(int i = 0; i < 4; i++){
         acc_bram_flatten[bram_addr + i] = (int8_t)pe_arr[i].out;

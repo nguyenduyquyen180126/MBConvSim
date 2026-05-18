@@ -122,6 +122,7 @@ int main(int argc, char *argv[]){
     // ============== Load IFM_BRAM ================
     printf("[LOGS] Load IFM BRAM\n");
     for(int i = 0; i < PW_H_in * PW_W_in * PW_C_IN / BRAM_WIDTH_IN_BYTE; i++){
+        update_max(&max_row_ifm, i);
         load_bram(DRAM, i * BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, PWCONV_IFM_BRAM, i);
     }
     printf("[LOGS] IFM BRAM Loaded.\n");
@@ -133,6 +134,7 @@ int main(int argc, char *argv[]){
         int bram_indx = __builtin_ctz(write_enable_weight);
 
         for(int i = 0; i < PW_C_IN / BRAM_WIDTH_IN_BYTE; i++){
+            update_max(&max_row_pw_w_ping, i);
             load_bram(DRAM, PW_WEIGHT_START_ADDR + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_FILTER_SIZE, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], i);
         }
 
@@ -145,6 +147,7 @@ int main(int argc, char *argv[]){
 
     int dw_start_addr = PW_H_in * PW_W_in * PW_C_IN + PW_NUM_OF_FILTER * PW_FILTER_SIZE;
     for(int i = 0; i < DW_H_K * DW_W_K * DW_NUM_OF_K / BRAM_WIDTH_IN_BYTE; i++){
+        update_max(&max_row_dw_w, i);
         load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
     }
     printf("[LOGS] DW Weight BRAM Loaded\n");
@@ -164,6 +167,7 @@ int main(int argc, char *argv[]){
     int se_pw_block_size = (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE;
     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
         for(int row_indx = 0; row_indx < se_pw_block_size; row_indx++){
+            update_max(&max_row_se1_w_ping, row_indx);
             int dram_addr = se_pw_1_start_addr + bram_indx * SE_PW_1_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], row_indx);
         }
@@ -175,6 +179,7 @@ int main(int argc, char *argv[]){
     se_pw_block_size = (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE;
     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
         for(int row_indx = 0; row_indx < se_pw_block_size; row_indx++){
+            update_max(&max_row_se2_w_ping, row_indx);
             int dram_addr = se_pw_2_start_addr + bram_indx * SE_PW_2_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], row_indx);
         }
@@ -188,6 +193,7 @@ int main(int argc, char *argv[]){
    
     for(int bram_indx = 0; bram_indx < NUM_OF_BRAM; bram_indx++){
         for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
+            update_max(&max_row_pw_last_w_ping, i);
             int dram_addr = pw_last_start_addr + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_LAST_CIN;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], ping_start_row + i);
         }
@@ -264,6 +270,9 @@ int main(int argc, char *argv[]){
                             
                             for(int bram_indx = 0; bram_indx < NUM_OF_BRAM; bram_indx++){
                                 for(int r = 0; r < rows_per_bram; r++){
+                                    if (w_row_indx_to_write == ping_start_row) update_max(&max_row_pw_w_ping, r);
+                                    else update_max(&max_row_pw_w_pong, r);
+
                                     int dram_addr = PW_WEIGHT_START_ADDR + next_tile_offset + bram_indx * PW_FILTER_SIZE + r * BRAM_WIDTH_IN_BYTE;
                                     load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], w_row_indx_to_write + r);
                                 }
@@ -352,6 +361,7 @@ int main(int argc, char *argv[]){
                     for(int j=0; j<16; j++) gap_acc[j] += ifm[j];
                 }
                 for(int j=0; j<16; j++) gap_acc[j] /= DW_W_OUT * DW_H_OUT;
+                update_max(&max_row_gap, tile);
                 gap_acc_store(gap_acc, GAP_BRAM, tile);
             }
             print_bram_to_file("output/gap_acc.txt", GAP_BRAM, DW_C_OUT / BRAM_WIDTH_IN_BYTE);
@@ -382,6 +392,9 @@ int main(int argc, char *argv[]){
                 if(chuck_ofm + 1 < SE_PW_1_COUT / NUM_OF_SE_PE){
                     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
                         for(int row = 0; row < (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row++){
+                            if (row_start_to_write == ping_start_row) update_max(&max_row_se1_w_ping, row);
+                            else update_max(&max_row_se1_w_pong, row);
+
                             int dram_addr = se_pw_1_start_addr + (chuck_ofm + 1) * SE_PW_1_CIN * NUM_OF_SE_BRAM  + bram_indx * SE_PW_1_CIN + row * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], row_start_to_write + row);
                         }
@@ -421,6 +434,9 @@ int main(int argc, char *argv[]){
                 if(row_ofm + 1 < SE_PW_2_COUT / NUM_OF_SE_PE){
                     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
                         for(int row = 0; row < (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row++){
+                            if (row_start_to_write == ping_start_row) update_max(&max_row_se2_w_ping, row);
+                            else update_max(&max_row_se2_w_pong, row);
+
                             int dram_addr = se_pw_2_start_addr + (row_ofm + 1) * SE_PW_2_CIN * NUM_OF_SE_BRAM  + bram_indx * SE_PW_2_CIN + row * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], row_start_to_write + row);
                         }
@@ -496,6 +512,9 @@ int main(int argc, char *argv[]){
                     int start_addr_next_tile = pw_last_start_addr + (tile + 1) * NUM_OF_PE * PW_LAST_CIN;
                     for(int bram_indx = 0; bram_indx < NUM_OF_BRAM; bram_indx++){
                         for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
+                            if (w_row_indx_to_write == ping_start_row) update_max(&max_row_pw_last_w_ping, i);
+                            else update_max(&max_row_pw_last_w_pong, i);
+
                             int dram_addr = start_addr_next_tile + bram_indx * PW_LAST_CIN + i * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], w_row_indx_to_write + i);
                         }
@@ -529,5 +548,6 @@ int main(int argc, char *argv[]){
         }
     }
     printf("[LOGS] ============ Done. =============\n");
+    report_bram_usage();
     print_bram_to_file("output.txt", OUTPUT, PW_LAST_H * PW_LAST_W * PW_LAST_COUT / BRAM_WIDTH_IN_BYTE);
 }

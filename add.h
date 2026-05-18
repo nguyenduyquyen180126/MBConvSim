@@ -20,6 +20,7 @@ void add_reset(){
     }
 }
 void add_store(int row_addr){
+    update_max(&max_row_output, row_addr);
     for(int i = 0; i < 16; i++){
         OUTPUT[row_addr][i] = (int8_t)add_arr[i].c;
     }
