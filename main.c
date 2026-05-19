@@ -214,10 +214,6 @@ int main(int argc, char *argv[]){
     }
     printf("[LOGS] PW Weight BRAMs Loaded.\n");
 
-    // =================== Bien cho pipeline ===================
-    printf("[LOGS] Starting PW-DW-GAP computation loops...\n");
-    rows_per_pw_filter = PW_C_IN / BRAM_WIDTH_IN_BYTE;
-
     // ========================================= PW =========================================
     printf("[LOGS] Starting PW computation loops...\n");
     for(int tile = 0; tile < PW_NUM_OF_FILTER / NUM_OF_PE; tile++){
