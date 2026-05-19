@@ -1,5 +1,18 @@
 #include "bram.h"
 
+
+
+
+
+unsigned long long total_load_cycles = 0;
+const int DMA_LATENCY = 30; // Giả sử mỗi lần load mất 30 cycles (có thể điều chỉnh tùy theo thực tế)
+
+
+
+
+
+
+
 int ping_start_row = 0;
 int pong_start_row = 576;
 // =========================== 1. BRAM của PWConv ================================
@@ -118,27 +131,26 @@ int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram
         return SYS_INVALID_ARG;
     }
     memcpy(bram + addr_bram, dram + addr_dram, trans_size_in_byte);
+    total_load_cycles += DMA_LATENCY + 1;
     return 1;
 }
 
 void report_bram_usage() {
     printf("\n[BRAM USAGE REPORT - MAX ROWS ACCESSED]\n");
     printf("IFM BRAM:         %d rows\n", max_row_ifm + 1);
+    printf("PW Weight (Ping/Pong): %d / %d rows\n", max_row_pw_w_ping + 1, max_row_pw_w_pong + 1);
     printf("PW ACC BRAM:      %d rows\n", max_row_pw_acc + 1);
+    printf("DW Weight:             %d rows\n", max_row_dw_w + 1);
     printf("DW ACC BRAM:      %d rows\n", max_row_dw_acc + 1);
     printf("GAP BRAM:         %d rows\n", max_row_gap + 1);
+    printf("SE1 Weight (Ping/Pong):%d / %d rows\n", max_row_se1_w_ping + 1, max_row_se1_w_pong + 1);
     printf("SE1 ACC BRAM:     %d rows\n", max_row_se1_acc + 1);
+    printf("SE2 Weight (Ping/Pong):%d / %d rows\n", max_row_se2_w_ping + 1, max_row_se2_w_pong + 1);
     printf("SE2 ACC BRAM:     %d rows\n", max_row_se2_acc + 1);
     printf("MUL BRAM:         %d rows\n", max_row_mul + 1);
+    printf("PW LAST W (Ping/Pong): %d / %d rows\n", max_row_pw_last_w_ping + 1, max_row_pw_last_w_pong + 1);
     printf("PW LAST ACC BRAM: %d rows\n", max_row_pw_last_acc + 1);
     printf("OUTPUT BRAM:      %d rows\n", max_row_output + 1);
-    printf("----------------------------------------\n");
-    printf("PW Weight (Ping/Pong): %d / %d rows\n", max_row_pw_w_ping + 1, max_row_pw_w_pong + 1);
-    printf("DW Weight:             %d rows\n", max_row_dw_w + 1);
-    printf("SE1 Weight (Ping/Pong):%d / %d rows\n", max_row_se1_w_ping + 1, max_row_se1_w_pong + 1);
-    printf("SE2 Weight (Ping/Pong):%d / %d rows\n", max_row_se2_w_ping + 1, max_row_se2_w_pong + 1);
-    printf("PW LAST W (Ping/Pong): %d / %d rows\n", max_row_pw_last_w_ping + 1, max_row_pw_last_w_pong + 1);
-    printf("========================================\n\n");
 }
 
 void __load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram)[16], int addr_bram){

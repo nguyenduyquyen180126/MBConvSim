@@ -544,6 +544,7 @@ int main(int argc, char *argv[]){
     } else {
         printf("[LOGS] Skipping Residual Add (Stride > 1 or Channel Mismatch)\n");
         for(int tile = 0; tile < total_tile_per_chuck * num_of_chunk; tile++){
+            update_max(&max_row_output, tile);
             for(int i = 0; i < 16; i++) OUTPUT[tile][i] = PW_LAST_ACC_BRAM[tile][i];
         }
     }

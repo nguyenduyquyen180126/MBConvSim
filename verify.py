@@ -207,16 +207,39 @@ test_cases = [
 ]
 
 if __name__ == "__main__":
+    import csv
     run_command("gcc -I./include src/*.c main.c -fopenmp -o main.exe")
     all_success = True
     global_usage = {}
+    csv_results = []
+
     for test in test_cases:
         ok, usage = run_test(test)
         if not ok: all_success = False
+        
+        # Collect data for CSV
+        row = {"Block Name": test["name"]}
+        # Add config parameters (excluding name)
+        for k, v in test.items():
+            if k != "name":
+                row[k] = v
+        # Add usage metrics
+        row.update(usage)
+        csv_results.append(row)
+
         for k, v in usage.items():
             if k not in global_usage or v > global_usage[k]:
                 global_usage[k] = v
     
+    # Write to CSV
+    if csv_results:
+        keys = csv_results[0].keys()
+        with open('bram_usage_report.csv', 'w', newline='') as f:
+            dict_writer = csv.DictWriter(f, fieldnames=keys)
+            dict_writer.writeheader()
+            dict_writer.writerows(csv_results)
+        print(f"\n[LOGS] BRAM usage report saved to 'bram_usage_report.csv'")
+
     if all_success:
         print("\n" + "="*50)
         print("EFFICIENTNETV2-B0 GLOBAL BRAM USAGE SUMMARY")
