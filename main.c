@@ -224,7 +224,7 @@ int main(int argc, char *argv[]){
                 int w_row_indx = tile * rows_per_pw_filter;
                 
                 for(int i = 0; i < rows_per_pw_filter; i++){
-                    #pragma omp atomic update
+                    // #pragma omp atomic update
                     cycles_pw1++;
                     pw_pe_compute(&pw_pe_array[0], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W0_BRAM, w_row_indx + i);
                     pw_pe_compute(&pw_pe_array[1], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W1_BRAM, w_row_indx + i);
@@ -289,12 +289,12 @@ int main(int argc, char *argv[]){
                         dw_pe_compute(&dw_pe_arr[13], ifm_row[13], weight_row[13]);
                         dw_pe_compute(&dw_pe_arr[14], ifm_row[14], weight_row[14]);
                         dw_pe_compute(&dw_pe_arr[15], ifm_row[15], weight_row[15]);
-                        #pragma omp atomic update
+                        // #pragma omp atomic update
                         cycles_dw++;
                     } else {
                         int8_t ifm_row[16] = {0};
                         for(int j=0; j<16; j++) dw_pe_compute(&dw_pe_arr[j], ifm_row[j], weight_row[j]);
-                        #pragma omp atomic update
+                        // #pragma omp atomic update
                         cycles_dw++;
                     }
                 }
@@ -314,7 +314,7 @@ int main(int argc, char *argv[]){
             int ifm_row_indx = i * (DW_C_OUT / NUM_OF_PE) + tile;
             int8_t *ifm = DW_ACC_BRAM[ifm_row_indx];
             for(int j=0; j<16; j++) gap_acc[j] += ifm[j];
-            #pragma omp atomic update
+            // #pragma omp atomic update
             cycles_gap++;
         }
         for(int j=0; j<16; j++) gap_acc[j] /= DW_W_OUT * DW_H_OUT;
