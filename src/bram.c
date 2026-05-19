@@ -1,4 +1,4 @@
-#include "bram.h"
+#include "../include/bram.h"
 
 int ping_start_row = 0;
 int pong_start_row = 576;
@@ -9,22 +9,22 @@ int pong_start_row = 576;
 */
 
 int8_t PWCONV_IFM_BRAM[16384][16];
-int8_t PWCONV_W0_BRAM[1152][16];
-int8_t PWCONV_W1_BRAM[1152][16];
-int8_t PWCONV_W2_BRAM[1152][16];
-int8_t PWCONV_W3_BRAM[1152][16];
-int8_t PWCONV_W4_BRAM[1152][16];
-int8_t PWCONV_W5_BRAM[1152][16];
-int8_t PWCONV_W6_BRAM[1152][16];
-int8_t PWCONV_W7_BRAM[1152][16];
-int8_t PWCONV_W8_BRAM[1152][16];
-int8_t PWCONV_W9_BRAM[1152][16];
-int8_t PWCONV_W10_BRAM[1152][16];
-int8_t PWCONV_W11_BRAM[1152][16];
-int8_t PWCONV_W12_BRAM[1152][16];
-int8_t PWCONV_W13_BRAM[1152][16];
-int8_t PWCONV_W14_BRAM[1152][16];
-int8_t PWCONV_W15_BRAM[1152][16];
+int8_t PWCONV_W0_BRAM[16384][16];
+int8_t PWCONV_W1_BRAM[16384][16];
+int8_t PWCONV_W2_BRAM[16384][16];
+int8_t PWCONV_W3_BRAM[16384][16];
+int8_t PWCONV_W4_BRAM[16384][16];
+int8_t PWCONV_W5_BRAM[16384][16];
+int8_t PWCONV_W6_BRAM[16384][16];
+int8_t PWCONV_W7_BRAM[16384][16];
+int8_t PWCONV_W8_BRAM[16384][16];
+int8_t PWCONV_W9_BRAM[16384][16];
+int8_t PWCONV_W10_BRAM[16384][16];
+int8_t PWCONV_W11_BRAM[16384][16];
+int8_t PWCONV_W12_BRAM[16384][16];
+int8_t PWCONV_W13_BRAM[16384][16];
+int8_t PWCONV_W14_BRAM[16384][16];
+int8_t PWCONV_W15_BRAM[16384][16];
 
 int8_t PWCONV_ACC_BRAM[16384][16];
 int8_t (*pwconv_w_brams[16])[16] = {
@@ -34,17 +34,17 @@ int8_t (*pwconv_w_brams[16])[16] = {
 
 
 // ============================== 2. BRAM của DWConv ===============================
-int8_t DW_W_BRAM[1152][16];
+int8_t DW_W_BRAM[16384][16];
 int8_t DW_ACC_BRAM[16384][16];
 
 // ============================== 3. BRAM của GAP ==============================
-int8_t GAP_BRAM[1152][16];
+int8_t GAP_BRAM[16384][16];
 
 // ============================== 4. BRAM của SE PW1 =========================
-int8_t SE_PW_1_W1_BRAM[1152][16];
-int8_t SE_PW_1_W2_BRAM[1152][16];
-int8_t SE_PW_1_W3_BRAM[1152][16];
-int8_t SE_PW_1_W4_BRAM[1152][16];
+int8_t SE_PW_1_W1_BRAM[16384][16];
+int8_t SE_PW_1_W2_BRAM[16384][16];
+int8_t SE_PW_1_W3_BRAM[16384][16];
+int8_t SE_PW_1_W4_BRAM[16384][16];
 
 int8_t (*se_pw_1_w_brams[4])[16] = {
     SE_PW_1_W1_BRAM, SE_PW_1_W2_BRAM, SE_PW_1_W3_BRAM, SE_PW_1_W4_BRAM
@@ -52,10 +52,10 @@ int8_t (*se_pw_1_w_brams[4])[16] = {
 int8_t SE_PW_1_ACC_BRAM[16384][16];
 int8_t (*SE_PW_1_ACC_4_WIDTH_BRAM)[4] = (int8_t (*)[4])SE_PW_1_ACC_BRAM;
 // ============================== 5. BRAM của SE PW2 =========================
-int8_t SE_PW_2_W1_BRAM[1152][16];
-int8_t SE_PW_2_W2_BRAM[1152][16];
-int8_t SE_PW_2_W3_BRAM[1152][16];
-int8_t SE_PW_2_W4_BRAM[1152][16];
+int8_t SE_PW_2_W1_BRAM[16384][16];
+int8_t SE_PW_2_W2_BRAM[16384][16];
+int8_t SE_PW_2_W3_BRAM[16384][16];
+int8_t SE_PW_2_W4_BRAM[16384][16];
 int8_t (*se_pw_2_w_brams[4])[16] = {
     SE_PW_2_W1_BRAM, SE_PW_2_W2_BRAM, SE_PW_2_W3_BRAM, SE_PW_2_W4_BRAM
 };
@@ -64,22 +64,22 @@ int8_t (*SE_PW_2_ACC_4_WIDTH_BRAM)[4] = (int8_t (*)[4])SE_PW_2_ACC_BRAM;
 // ============================== 5. BRAM của MUL =============================
 int8_t MUL_BRAM[16384][16];
 // ============================== 6. BRAM của PW_LAST =============================
-int8_t PW_LAST_W0_BRAM[1152][16];
-int8_t PW_LAST_W1_BRAM[1152][16];
-int8_t PW_LAST_W2_BRAM[1152][16];
-int8_t PW_LAST_W3_BRAM[1152][16];
-int8_t PW_LAST_W4_BRAM[1152][16];
-int8_t PW_LAST_W5_BRAM[1152][16];
-int8_t PW_LAST_W6_BRAM[1152][16];
-int8_t PW_LAST_W7_BRAM[1152][16];
-int8_t PW_LAST_W8_BRAM[1152][16];
-int8_t PW_LAST_W9_BRAM[1152][16];
-int8_t PW_LAST_W10_BRAM[1152][16];
-int8_t PW_LAST_W11_BRAM[1152][16];
-int8_t PW_LAST_W12_BRAM[1152][16];
-int8_t PW_LAST_W13_BRAM[1152][16];
-int8_t PW_LAST_W14_BRAM[1152][16];
-int8_t PW_LAST_W15_BRAM[1152][16];
+int8_t PW_LAST_W0_BRAM[16384][16];
+int8_t PW_LAST_W1_BRAM[16384][16];
+int8_t PW_LAST_W2_BRAM[16384][16];
+int8_t PW_LAST_W3_BRAM[16384][16];
+int8_t PW_LAST_W4_BRAM[16384][16];
+int8_t PW_LAST_W5_BRAM[16384][16];
+int8_t PW_LAST_W6_BRAM[16384][16];
+int8_t PW_LAST_W7_BRAM[16384][16];
+int8_t PW_LAST_W8_BRAM[16384][16];
+int8_t PW_LAST_W9_BRAM[16384][16];
+int8_t PW_LAST_W10_BRAM[16384][16];
+int8_t PW_LAST_W11_BRAM[16384][16];
+int8_t PW_LAST_W12_BRAM[16384][16];
+int8_t PW_LAST_W13_BRAM[16384][16];
+int8_t PW_LAST_W14_BRAM[16384][16];
+int8_t PW_LAST_W15_BRAM[16384][16];
 int8_t (*pw_last_w_brams[16])[16] = {
         PW_LAST_W0_BRAM, PW_LAST_W1_BRAM, PW_LAST_W2_BRAM, PW_LAST_W3_BRAM, PW_LAST_W4_BRAM, PW_LAST_W5_BRAM, PW_LAST_W6_BRAM, PW_LAST_W7_BRAM,
         PW_LAST_W8_BRAM, PW_LAST_W9_BRAM, PW_LAST_W10_BRAM, PW_LAST_W11_BRAM, PW_LAST_W12_BRAM, PW_LAST_W13_BRAM, PW_LAST_W14_BRAM, PW_LAST_W15_BRAM

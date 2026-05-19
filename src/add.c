@@ -1,4 +1,4 @@
-#include "add.h"
+#include "../include/add.h"
 int8_t OUTPUT[16384][16];
 struct ADD add_arr[16];
 void add_compute(struct ADD *add, int8_t a, int8_t b){

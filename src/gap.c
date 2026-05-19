@@ -1,4 +1,4 @@
-#include "gap.h"
+#include "../include/gap.h"
 int32_t gap_acc[16]; // Bộ cộng tích luỹ
 
 void gap_acc_reset(){

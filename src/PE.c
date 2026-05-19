@@ -1,4 +1,4 @@
-#include "PE.h"
+#include "../include/PE.h"
 void pw_pe_load(struct PWCONV_PE *pe, int8_t (*ifm_bram)[16], int ifm_row, int8_t (*weight_bram)[16], int w_row){
     /*
         Copy ifm

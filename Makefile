@@ -1,5 +1,5 @@
 all: build
-build: main.c
-	gcc main.c -fopenmp
+build: main.c src/*.c
+	gcc main.c src/*.c -fopenmp -o main
 clean:
-	rm -r *.exe
+	rm -f main main.exe

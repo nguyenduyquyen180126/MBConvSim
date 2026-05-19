@@ -1,4 +1,4 @@
-#include "dram.h"
+#include "../include/dram.h"
 
 
 int8_t DRAM[DRAM_SIZE];

@@ -1,4 +1,4 @@
-#include "mul.h"
+#include "../include/mul.h"
 struct MUL mul[16];
 void mul_act(struct MUL *mul, int8_t a, int8_t b){
     mul->c = (int32_t)a * (int32_t)b;
