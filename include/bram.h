@@ -110,7 +110,26 @@ extern int max_row_se2_w_pong;
 extern int max_row_pw_last_w_ping;
 extern int max_row_pw_last_w_pong;
 
+extern unsigned long long cycles_load;
+extern unsigned long long cycles_load_init;
+extern unsigned long long cycles_load_pw1;
+extern unsigned long long cycles_load_se1;
+extern unsigned long long cycles_load_se2;
+extern unsigned long long cycles_load_pw_last;
+extern unsigned long long *ptr_cycles_load;
+
+extern unsigned long long cycles_pw1;
+extern unsigned long long cycles_dw;
+extern unsigned long long cycles_gap;
+extern unsigned long long cycles_se1;
+extern unsigned long long cycles_se2;
+extern unsigned long long cycles_mul;
+extern unsigned long long cycles_pw_last;
+extern unsigned long long cycles_add;
+
 void update_max(int *max_var, int current_row);
+void reset_performance_counters();
+void report_performance();
 
 // ========================== Ping pong config ===========================
 /*

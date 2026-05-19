@@ -1,18 +1,5 @@
 #include "bram.h"
 
-
-
-
-
-unsigned long long total_load_cycles = 0;
-const int DMA_LATENCY = 30; // Giả sử mỗi lần load mất 30 cycles (có thể điều chỉnh tùy theo thực tế)
-
-
-
-
-
-
-
 int ping_start_row = 0;
 int pong_start_row = 576;
 // =========================== 1. BRAM của PWConv ================================
@@ -120,20 +107,75 @@ int max_row_se2_w_pong = 0;
 int max_row_pw_last_w_ping = 0;
 int max_row_pw_last_w_pong = 0;
 
+unsigned long long cycles_load = 0;
+unsigned long long cycles_load_init = 0;
+unsigned long long cycles_load_pw1 = 0;
+unsigned long long cycles_load_se1 = 0;
+unsigned long long cycles_load_se2 = 0;
+unsigned long long cycles_load_pw_last = 0;
+unsigned long long *ptr_cycles_load = &cycles_load_init;
+
+unsigned long long cycles_pw1 = 0;
+unsigned long long cycles_dw = 0;
+unsigned long long cycles_gap = 0;
+unsigned long long cycles_se1 = 0;
+unsigned long long cycles_se2 = 0;
+unsigned long long cycles_mul = 0;
+unsigned long long cycles_pw_last = 0;
+unsigned long long cycles_add = 0;
+
+void reset_performance_counters() {
+    cycles_load = cycles_load_init = cycles_load_pw1 = cycles_load_se1 = 0;
+    cycles_load_se2 = cycles_load_pw_last = 0;
+    ptr_cycles_load = &cycles_load_init;
+    
+    cycles_pw1 = cycles_dw = cycles_gap = 0;
+    cycles_se1 = cycles_se2 = cycles_mul = cycles_pw_last = cycles_add = 0;
+}
+
 void update_max(int *max_var, int current_row) {
     if (current_row > *max_var) *max_var = current_row;
 }
-
 
 int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram)[16], int addr_bram){
     if(trans_size_in_byte > 16){
         printf("[ERROR] DMA không truyen đuoc qua 128 bits\n");
         return SYS_INVALID_ARG;
     }
+    // Simple cycle model: 30 cycles latency + 1 cycle per 16-byte transfer
+    unsigned long long c = 30 + 1;
+    cycles_load += c;
+    if (ptr_cycles_load) *ptr_cycles_load += c;
+
     memcpy(bram + addr_bram, dram + addr_dram, trans_size_in_byte);
-    total_load_cycles += DMA_LATENCY + 1;
     return 1;
 }
+
+void report_performance() {
+    printf("\n[PERFORMANCE REPORT - COMPUTE CYCLES]\n");
+    printf("PW1 Cycles:       %llu\n", cycles_pw1);
+    printf("DW Cycles:        %llu\n", cycles_dw);
+    printf("GAP Cycles:       %llu\n", cycles_gap);
+    printf("SE1 Cycles:       %llu\n", cycles_se1);
+    printf("SE2 Cycles:       %llu\n", cycles_se2);
+    printf("MUL Cycles:       %llu\n", cycles_mul);
+    printf("PW_LAST Cycles:   %llu\n", cycles_pw_last);
+    printf("ADD Cycles:       %llu\n", cycles_add);
+    
+    printf("\n[PERFORMANCE REPORT - LOAD CYCLES]\n");
+    printf("LOAD_INIT Cycles: %llu\n", cycles_load_init);
+    printf("LOAD_PW1 Cycles:  %llu\n", cycles_load_pw1);
+    printf("LOAD_SE1 Cycles:  %llu\n", cycles_load_se1);
+    printf("LOAD_SE2 Cycles:  %llu\n", cycles_load_se2);
+    printf("LOAD_PW_L Cycles: %llu\n", cycles_load_pw_last);
+    printf("TOTAL LOAD Cycles:%llu\n", cycles_load);
+    
+    unsigned long long total_compute = cycles_pw1 + cycles_dw + cycles_gap + cycles_se1 + cycles_se2 + cycles_mul + cycles_pw_last + cycles_add;
+    printf("\nTOTAL COMPUTE:    %llu\n", total_compute);
+    printf("TOTAL EXECUTION:  %llu (Simple sum)\n", total_compute + cycles_load);
+}
+
+
 
 void report_bram_usage() {
     printf("\n[BRAM USAGE REPORT - MAX ROWS ACCESSED]\n");

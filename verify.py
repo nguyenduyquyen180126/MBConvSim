@@ -100,21 +100,32 @@ def run_test(config):
     cmd_args = " ".join([f"-{k} {v}" for k, v in full_config.items()])
     sim_stdout = run_command(f"main.exe {cmd_args}" if os.name == 'nt' else f"./main.exe {cmd_args}")
 
-    # Parse BRAM Usage
+    # Parse BRAM Usage and Cycles
     usage = {}
     lines = sim_stdout.split('\n')
     for line in lines:
-        if ':' in line and 'rows' in line:
+        line = line.strip()
+        if ':' in line:
             parts = line.split(':')
             key = parts[0].strip()
             val_str = parts[1].strip().split(' ')[0]
-            try:
-                usage[key] = int(val_str)
-            except:
-                if '/' in parts[1]:
-                    vals = parts[1].replace('rows','').strip().split('/')
-                    usage[f"{key} Ping"] = int(vals[0].strip())
-                    usage[f"{key} Pong"] = int(vals[1].strip())
+            
+            # BRAM usage parsing
+            if 'rows' in line:
+                try:
+                    usage[key] = int(val_str)
+                except:
+                    if '/' in parts[1]:
+                        vals = parts[1].replace('rows','').strip().split('/')
+                        usage[f"{key} Ping"] = int(vals[0].strip())
+                        usage[f"{key} Pong"] = int(vals[1].strip())
+            
+            # Cycle parsing
+            elif 'Cycles' in line or 'TOTAL' in line or 'COMPUTE' in line:
+                try:
+                    usage[key] = int(val_str)
+                except:
+                    pass
 
     # Python Reference logic
     def conv2d_pw(x, w):
@@ -218,27 +229,69 @@ if __name__ == "__main__":
         if not ok: all_success = False
         
         # Collect data for CSV
-        row = {"Block Name": test["name"]}
-        # Add config parameters (excluding name)
-        for k, v in test.items():
-            if k != "name":
-                row[k] = v
-        # Add usage metrics
+        config_str = ", ".join([f"{k}={v}" for k, v in test.items() if k != "name"])
+        full_name = f"{test['name']} ({config_str})"
+        row = {"Block Name": full_name}
+        
+        # Add usage metrics (BRAM and Cycles)
         row.update(usage)
         csv_results.append(row)
 
         for k, v in usage.items():
-            if k not in global_usage or v > global_usage[k]:
+            if k not in global_usage or (isinstance(v, int) and v > global_usage.get(k, 0)):
                 global_usage[k] = v
     
     # Write to CSV
     if csv_results:
-        keys = csv_results[0].keys()
+        # Get all unique keys
+        all_keys = set()
+        for r in csv_results:
+            all_keys.update(r.keys())
+        
+        # Logical column ordering grouped by Layer
+        def sort_priority(key):
+            k_upper = key.upper()
+            if key == "Block Name": return (0, 0, key)
+            
+            # Layer mapping (Sequence: INIT -> PW1 -> DW -> GAP -> SE1 -> SE2 -> MUL -> PW_LAST -> ADD -> TOTAL)
+            layers = [
+                ("INIT", 1), ("IFM", 1),
+                ("PW1", 2), ("PW ", 2),
+                ("DW", 3),
+                ("GAP", 4),
+                ("SE1", 5),
+                ("SE2", 6),
+                ("MUL", 7),
+                ("PW_LAST", 8), ("PW LAST", 8), ("PW_L", 8),
+                ("OUTPUT", 9),
+                ("ADD", 10),
+                ("TOTAL", 11)
+            ]
+            
+            layer_idx = 99
+            # Match layer patterns, prioritizing more specific (longer) names
+            for pattern, idx in sorted(layers, key=lambda x: len(x[0]), reverse=True):
+                if pattern in k_upper:
+                    layer_idx = idx
+                    break
+            
+            # Metric sub-ordering: Load -> Cycles -> Weight -> Acc -> BRAM
+            metric_idx = 5
+            if "LOAD" in k_upper: metric_idx = 0
+            elif "CYCLES" in k_upper: metric_idx = 1
+            elif "WEIGHT" in k_upper or " W " in k_upper: metric_idx = 2
+            elif "ACC" in k_upper: metric_idx = 3
+            elif "BRAM" in k_upper: metric_idx = 4
+            
+            return (layer_idx, metric_idx, key)
+
+        sorted_keys = sorted(list(all_keys), key=sort_priority)
+        
         with open('bram_usage_report.csv', 'w', newline='') as f:
-            dict_writer = csv.DictWriter(f, fieldnames=keys)
+            dict_writer = csv.DictWriter(f, fieldnames=sorted_keys)
             dict_writer.writeheader()
             dict_writer.writerows(csv_results)
-        print(f"\n[LOGS] BRAM usage report saved to 'bram_usage_report.csv'")
+        print(f"\n[LOGS] Detailed performance and BRAM report saved to 'bram_usage_report.csv'")
 
     if all_success:
         print("\n" + "="*50)
