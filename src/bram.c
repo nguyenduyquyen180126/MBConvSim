@@ -109,28 +109,38 @@ int max_row_pw_last_w_pong = 0;
 
 unsigned long long cycles_load = 0;
 unsigned long long cycles_load_init = 0;
-unsigned long long cycles_load_pw1 = 0;
-unsigned long long cycles_load_se1 = 0;
-unsigned long long cycles_load_se2 = 0;
-unsigned long long cycles_load_pw_last = 0;
+// unsigned long long cycles_load_pw1 = 0;
+// unsigned long long cycles_load_se1 = 0;
+// unsigned long long cycles_load_se2 = 0;
+// unsigned long long cycles_load_pw_last = 0;
 unsigned long long *ptr_cycles_load = &cycles_load_init;
 
-unsigned long long cycles_pw1 = 0;
+// unsigned long long cycles_pw1 = 0;
+unsigned long long real_pw1_cycles = 0;
+unsigned long long hidden_pw1_cycles = 0;
 unsigned long long cycles_dw = 0;
 unsigned long long cycles_gap = 0;
-unsigned long long cycles_se1 = 0;
-unsigned long long cycles_se2 = 0;
+// unsigned long long cycles_se1 = 0;
+// unsigned long long cycles_se2 = 0;
+unsigned long long real_se1_cycles = 0;
+unsigned long long hidden_se1_cycles = 0;
+unsigned long long real_se2_cycles = 0;
+unsigned long long hidden_se2_cycles = 0;
 unsigned long long cycles_mul = 0;
-unsigned long long cycles_pw_last = 0;
+// unsigned long long cycles_pw_last = 0;
+unsigned long long real_pw_last_cycles = 0;
+unsigned long long hidden_pw_last_cycles = 0;
 unsigned long long cycles_add = 0;
 
 void reset_performance_counters() {
-    cycles_load = cycles_load_init = cycles_load_pw1 = cycles_load_se1 = 0;
-    cycles_load_se2 = cycles_load_pw_last = 0;
+    cycles_load = cycles_load_init = 0;
     ptr_cycles_load = &cycles_load_init;
     
-    cycles_pw1 = cycles_dw = cycles_gap = 0;
-    cycles_se1 = cycles_se2 = cycles_mul = cycles_pw_last = cycles_add = 0;
+    real_pw1_cycles = hidden_pw1_cycles = 0;
+    cycles_dw = cycles_gap = 0;
+    real_se1_cycles = hidden_se1_cycles = 0;
+    real_se2_cycles = hidden_se2_cycles = 0;
+    cycles_mul = cycles_add = 0;
 }
 
 void update_max(int *max_var, int current_row) {
@@ -153,24 +163,28 @@ int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram
 
 void report_performance() {
     printf("\n[PERFORMANCE REPORT - COMPUTE CYCLES]\n");
-    printf("PW1 Cycles:       %llu\n", cycles_pw1);
+    printf("PW1 Cycles:       %llu\n", real_pw1_cycles);
+    printf("PW1 Hidden Cycles: %llu\n", hidden_pw1_cycles);
     printf("DW Cycles:        %llu\n", cycles_dw);
     printf("GAP Cycles:       %llu\n", cycles_gap);
-    printf("SE1 Cycles:       %llu\n", cycles_se1);
-    printf("SE2 Cycles:       %llu\n", cycles_se2);
+    printf("SE1 Cycles:       %llu\n", real_se1_cycles + hidden_se1_cycles);
+    printf("SE1 Hidden Cycles: %llu\n", hidden_se1_cycles);
+    printf("SE2 Cycles:       %llu\n", real_se2_cycles + hidden_se2_cycles);
+    printf("SE2 Hidden Cycles: %llu\n", hidden_se2_cycles);
     printf("MUL Cycles:       %llu\n", cycles_mul);
-    printf("PW_LAST Cycles:   %llu\n", cycles_pw_last);
+    printf("PW_LAST Cycles:   %llu\n", real_pw_last_cycles);
+    printf("PW_LAST Hidden Cycles: %llu\n", hidden_pw_last_cycles);
     printf("ADD Cycles:       %llu\n", cycles_add);
     
     printf("\n[PERFORMANCE REPORT - LOAD CYCLES]\n");
     printf("LOAD_INIT Cycles: %llu\n", cycles_load_init);
-    printf("LOAD_PW1 Cycles:  %llu\n", cycles_load_pw1);
-    printf("LOAD_SE1 Cycles:  %llu\n", cycles_load_se1);
-    printf("LOAD_SE2 Cycles:  %llu\n", cycles_load_se2);
-    printf("LOAD_PW_L Cycles: %llu\n", cycles_load_pw_last);
+    // printf("LOAD_PW1 Cycles:  %llu\n", cycles_load_pw1);
+    // printf("LOAD_SE1 Cycles:  %llu\n", cycles_load_se1);
+    // printf("LOAD_SE2 Cycles:  %llu\n", cycles_load_se2);
+    // printf("LOAD_PW_L Cycles: %llu\n", cycles_load_pw_last);
     printf("TOTAL LOAD Cycles:%llu\n", cycles_load);
     
-    unsigned long long total_compute = cycles_pw1 + cycles_dw + cycles_gap + cycles_se1 + cycles_se2 + cycles_mul + cycles_pw_last + cycles_add;
+    unsigned long long total_compute = real_pw1_cycles + cycles_dw + cycles_gap + real_se1_cycles + real_se2_cycles + cycles_mul + real_pw_last_cycles + cycles_add;
     printf("\nTOTAL COMPUTE:    %llu\n", total_compute);
     printf("TOTAL EXECUTION:  %llu (Simple sum)\n", total_compute + cycles_load);
 }

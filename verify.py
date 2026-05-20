@@ -121,11 +121,13 @@ def run_test(config):
                         usage[f"{key} Pong"] = int(vals[1].strip())
             
             # Cycle parsing
-            elif 'Cycles' in line or 'TOTAL' in line or 'COMPUTE' in line:
+            elif any(x in line for x in ['Cycles', 'TOTAL', 'COMPUTE', 'EXECUTION']):
                 try:
                     usage[key] = int(val_str)
                 except:
                     pass
+
+    # ... (rest of parsing)
 
     # Python Reference logic
     def conv2d_pw(x, w):
@@ -278,7 +280,7 @@ if __name__ == "__main__":
             # Metric sub-ordering: Load -> Cycles -> Weight -> Acc -> BRAM
             metric_idx = 5
             if "LOAD" in k_upper: metric_idx = 0
-            elif "CYCLES" in k_upper: metric_idx = 1
+            elif any(x in k_upper for x in ["CYCLES", "COMPUTE", "EXECUTION"]): metric_idx = 1
             elif "WEIGHT" in k_upper or " W " in k_upper: metric_idx = 2
             elif "ACC" in k_upper: metric_idx = 3
             elif "BRAM" in k_upper: metric_idx = 4
@@ -298,7 +300,8 @@ if __name__ == "__main__":
         print("EFFICIENTNETV2-B0 GLOBAL BRAM USAGE SUMMARY")
         print("="*50)
         for k, v in sorted(global_usage.items()):
-            print(f"{k.ljust(25)}: {v} rows")
+            unit = "cycles" if any(x in k.upper() for x in ["CYCLES", "COMPUTE", "EXECUTION"]) else "rows"
+            print(f"{k.ljust(25)}: {v} {unit}")
         print("="*50)
         print("\n[ALL TESTS PASSED]")
     else:

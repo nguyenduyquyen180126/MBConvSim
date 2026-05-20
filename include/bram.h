@@ -112,19 +112,27 @@ extern int max_row_pw_last_w_pong;
 
 extern unsigned long long cycles_load;
 extern unsigned long long cycles_load_init;
-extern unsigned long long cycles_load_pw1;
-extern unsigned long long cycles_load_se1;
-extern unsigned long long cycles_load_se2;
-extern unsigned long long cycles_load_pw_last;
+// extern unsigned long long cycles_load_pw1; // Use pingpong loading, so we only need one variable to track loading cycles for PW1
+// extern unsigned long long cycles_load_se1;
+// extern unsigned long long cycles_load_se2;
+// extern unsigned long long cycles_load_pw_last;
 extern unsigned long long *ptr_cycles_load;
 
-extern unsigned long long cycles_pw1;
+// extern unsigned long long cycles_pw1;
+extern unsigned long long real_pw1_cycles;
+extern unsigned long long hidden_pw1_cycles;
 extern unsigned long long cycles_dw;
 extern unsigned long long cycles_gap;
-extern unsigned long long cycles_se1;
-extern unsigned long long cycles_se2;
+// extern unsigned long long cycles_se1;
+// extern unsigned long long cycles_se2;
+extern unsigned long long real_se1_cycles;
+extern unsigned long long hidden_se1_cycles;
+extern unsigned long long real_se2_cycles;
+extern unsigned long long hidden_se2_cycles;
 extern unsigned long long cycles_mul;
-extern unsigned long long cycles_pw_last;
+// extern unsigned long long cycles_pw_last;
+extern unsigned long long real_pw_last_cycles;
+extern unsigned long long hidden_pw_last_cycles;
 extern unsigned long long cycles_add;
 
 void update_max(int *max_var, int current_row);
@@ -162,4 +170,4 @@ int print_bram_to_file(const char *file_name, int8_t (*bram)[16], int num_of_row
 int print_bram_to_file_int8(const char *file_name, int8_t (*bram)[16], int width, int depth);
 
 
-#endif
+#endif // BRAM_H

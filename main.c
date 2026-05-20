@@ -211,6 +211,8 @@ int main(int argc, char *argv[]){
 
     printf("[LOGS] Starting PW computation loops...\n");
     for(int tile = 0; tile < PW_NUM_OF_FILTER / NUM_OF_PE; tile++){
+        unsigned long long tile_load_cycles = 0;
+        unsigned long long tile_compute_cycles = 0;
         while(compute_done == 0 || bram_load_done == 0){
             usleep(1);
         }
@@ -228,7 +230,7 @@ int main(int argc, char *argv[]){
                         
                         for(int i = 0; i < PW_FILTER_SIZE / NUM_OF_PE; i++){
                             #pragma omp atomic update
-                            cycles_pw1++;
+                            tile_compute_cycles++;
                             pw_pe_compute(&pw_pe_array[0], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W0_BRAM, w_row_indx + i);
                             pw_pe_compute(&pw_pe_array[1], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W1_BRAM, w_row_indx + i);
                             pw_pe_compute(&pw_pe_array[2], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W2_BRAM, w_row_indx + i);
@@ -258,7 +260,7 @@ int main(int argc, char *argv[]){
             }
             #pragma omp section
             {
-                ptr_cycles_load = &cycles_load_pw1;
+                ptr_cycles_load = &tile_load_cycles;
                 bram_load_done = 0;
                 if(tile < (PW_NUM_OF_FILTER / NUM_OF_PE) - 1){
                     int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
@@ -277,6 +279,13 @@ int main(int argc, char *argv[]){
                 }
                 bram_load_done = 1;
             }
+        }
+        if(tile_compute_cycles > tile_load_cycles){
+            real_pw1_cycles += tile_compute_cycles;
+            hidden_pw1_cycles += tile_load_cycles;
+        } else {
+            real_pw1_cycles += tile_load_cycles;
+            hidden_pw1_cycles += tile_compute_cycles;
         }
         ping_state = 1 - ping_state;
         pong_state = 1 - pong_state;
@@ -371,6 +380,9 @@ int main(int argc, char *argv[]){
     ping_state = READ;
     pong_state = WRITE;
     for(int chuck_ofm = 0; chuck_ofm < SE_PW_1_COUT / NUM_OF_SE_PE; chuck_ofm++){
+        unsigned long long tile_load_cycles = 0;
+        unsigned long long tile_compute_cycles = 0;
+
         int row_start_to_read = (ping_state == READ) ? ping_start_row : pong_start_row;
         int row_start_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
         se_pw_reset(se_pw_pe_1_arr);
@@ -379,7 +391,7 @@ int main(int argc, char *argv[]){
             #pragma omp section
             {
                 for(int row_ifm = 0; row_ifm < (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row_ifm++){
-                    cycles_se1++;
+                    tile_compute_cycles++;
                     pw_pe_compute(&se_pw_pe_1_arr[0], GAP_BRAM, row_ifm, SE_PW_1_W1_BRAM, row_start_to_read + row_ifm);
                     pw_pe_compute(&se_pw_pe_1_arr[1], GAP_BRAM, row_ifm, SE_PW_1_W2_BRAM, row_start_to_read + row_ifm);
                     pw_pe_compute(&se_pw_pe_1_arr[2], GAP_BRAM, row_ifm, SE_PW_1_W3_BRAM, row_start_to_read + row_ifm);
@@ -388,7 +400,7 @@ int main(int argc, char *argv[]){
             }
             #pragma omp section
             {
-                ptr_cycles_load = &cycles_load_se1;
+                ptr_cycles_load = &tile_load_cycles;
                 if(chuck_ofm + 1 < SE_PW_1_COUT / NUM_OF_SE_PE){
                     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
                         for(int row = 0; row < (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row++){
@@ -402,6 +414,14 @@ int main(int argc, char *argv[]){
                 }
             }
         }
+        if(tile_compute_cycles > tile_load_cycles) {
+            real_se1_cycles += tile_compute_cycles;
+            hidden_se1_cycles += tile_load_cycles;
+        } 
+        else {
+            real_se1_cycles += tile_load_cycles;
+            hidden_se1_cycles += tile_compute_cycles;
+        }
         se_pw_store(se_pw_pe_1_arr, SE_PW_1_ACC_BRAM, chuck_ofm * 4);
         ping_state = 1 - ping_state;
         pong_state = 1 - pong_state;
@@ -411,9 +431,14 @@ int main(int argc, char *argv[]){
 
     // ============================================== SE PW 2 ==============================================
     printf("[LOGS] Starting SE Pointwise 2 Conv\n");
+    
     ping_state = READ;
     pong_state = WRITE;
     for(int row_ofm = 0; row_ofm < SE_PW_2_COUT / NUM_OF_SE_PE; row_ofm++){
+        
+        unsigned long long tile_load_cycles = 0;
+        unsigned long long tile_compute_cycles = 0;
+
         int row_start_to_read = (ping_state == READ) ? ping_start_row : pong_start_row;
         int row_start_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
         se_pw_reset(se_pw_pe_2_arr);
@@ -422,7 +447,7 @@ int main(int argc, char *argv[]){
             #pragma omp section
             {
                 for(int row_ifm = 0; row_ifm < (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row_ifm++){
-                    cycles_se2++;
+                    tile_compute_cycles++;
                     int8_t *ifm_row = SE_PW_1_ACC_BRAM[row_ifm];
                     pw_pe_compute(&se_pw_pe_2_arr[0], (int8_t (*)[16])ifm_row, 0, SE_PW_2_W1_BRAM, row_start_to_read + row_ifm);
                     pw_pe_compute(&se_pw_pe_2_arr[1], (int8_t (*)[16])ifm_row, 0, SE_PW_2_W2_BRAM, row_start_to_read + row_ifm);
@@ -432,7 +457,7 @@ int main(int argc, char *argv[]){
             }
             #pragma omp section
             {
-                ptr_cycles_load = &cycles_load_se2;
+                ptr_cycles_load = &tile_load_cycles;
                 if(row_ofm + 1 < SE_PW_2_COUT / NUM_OF_SE_PE){
                     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
                         for(int row = 0; row < (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row++){
@@ -446,10 +471,19 @@ int main(int argc, char *argv[]){
                 }
             }
         }
+        if(tile_compute_cycles > tile_load_cycles) {
+            real_se2_cycles += tile_compute_cycles;
+            hidden_se2_cycles += tile_load_cycles;
+        } 
+        else {
+            real_se2_cycles += tile_load_cycles;
+            hidden_se2_cycles += tile_compute_cycles;
+        }
         se_pw_store(se_pw_pe_2_arr, SE_PW_2_ACC_BRAM, row_ofm * 4);
         ping_state = 1 - ping_state;
         pong_state = 1 - pong_state;
     }
+
     printf("[LOGS] Done SE Pointwise 2 Conv\n");
     print_bram_to_file("output/se_pw2.txt", SE_PW_2_ACC_BRAM, (SE_PW_2_COUT + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE);
 
@@ -473,6 +507,8 @@ int main(int argc, char *argv[]){
     ping_state = READ;
     pong_state = WRITE;
     for(int tile = 0; tile < PW_LAST_COUT / NUM_OF_PE; tile++){
+        unsigned long long tile_load_cycles = 0;
+        unsigned long long tile_compute_cycles = 0;
         #pragma omp parallel sections
         {
             #pragma omp section
@@ -484,7 +520,7 @@ int main(int argc, char *argv[]){
                         int ifm_row_indx = (ho * PW_LAST_W + wo) * row_needed_for_one_pixel_depth;
                         int w_row_indx = (ping_state == READ) ? ping_start_row : pong_start_row;
                         for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
-                            cycles_pw_last++;
+                            tile_compute_cycles++;
                             int8_t *ifm = MUL_BRAM[ifm_row_indx + i];
                             pw_pe_compute(&pw_last_pe_arr[0], (int8_t (*)[16])ifm, 0, PW_LAST_W0_BRAM, w_row_indx + i);
                             pw_pe_compute(&pw_last_pe_arr[1], (int8_t (*)[16])ifm, 0, PW_LAST_W1_BRAM, w_row_indx + i);
@@ -511,7 +547,7 @@ int main(int argc, char *argv[]){
             }
             #pragma omp section
             {
-                ptr_cycles_load = &cycles_load_pw_last;
+                ptr_cycles_load = &tile_load_cycles;
                 if(tile < (PW_LAST_COUT / NUM_OF_PE) - 1){
                     int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
                     int start_addr_next_tile = pw_last_start_addr + (tile + 1) * NUM_OF_PE * PW_LAST_CIN;
@@ -526,6 +562,14 @@ int main(int argc, char *argv[]){
                     }
                 }
             }
+        }
+        if(tile_compute_cycles > tile_load_cycles) {
+            real_pw_last_cycles += tile_compute_cycles;
+            hidden_pw_last_cycles += tile_load_cycles;
+        } 
+        else {
+            real_pw_last_cycles += tile_load_cycles;
+            hidden_pw_last_cycles += tile_compute_cycles;
         }
         ping_state = 1 - ping_state;
         pong_state = 1 - pong_state;
