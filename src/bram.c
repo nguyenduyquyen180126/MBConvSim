@@ -152,24 +152,21 @@ int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram
         printf("[ERROR] DMA không truyen đuoc qua 128 bits\n");
         return SYS_INVALID_ARG;
     }
-    // Simple cycle model: 30 cycles latency + 1 cycle per 16-byte transfer
-    unsigned long long c = 30 + 1;
-    cycles_load += c;
-    if (ptr_cycles_load) *ptr_cycles_load += c;
-
+    // Cycles are now managed by the caller in main.c to support burst modeling
     memcpy(bram + addr_bram, dram + addr_dram, trans_size_in_byte);
     return 1;
 }
 
 void report_performance() {
+    cycles_load = cycles_load_init;
     printf("\n[PERFORMANCE REPORT - COMPUTE CYCLES]\n");
     printf("PW1 Cycles:       %llu\n", real_pw1_cycles);
     printf("PW1 Hidden Cycles: %llu\n", hidden_pw1_cycles);
     printf("DW Cycles:        %llu\n", cycles_dw);
     printf("GAP Cycles:       %llu\n", cycles_gap);
-    printf("SE1 Cycles:       %llu\n", real_se1_cycles + hidden_se1_cycles);
+    printf("SE1 Cycles:       %llu\n", real_se1_cycles);
     printf("SE1 Hidden Cycles: %llu\n", hidden_se1_cycles);
-    printf("SE2 Cycles:       %llu\n", real_se2_cycles + hidden_se2_cycles);
+    printf("SE2 Cycles:       %llu\n", real_se2_cycles);
     printf("SE2 Hidden Cycles: %llu\n", hidden_se2_cycles);
     printf("MUL Cycles:       %llu\n", cycles_mul);
     printf("PW_LAST Cycles:   %llu\n", real_pw_last_cycles);
@@ -178,10 +175,6 @@ void report_performance() {
     
     printf("\n[PERFORMANCE REPORT - LOAD CYCLES]\n");
     printf("LOAD_INIT Cycles: %llu\n", cycles_load_init);
-    // printf("LOAD_PW1 Cycles:  %llu\n", cycles_load_pw1);
-    // printf("LOAD_SE1 Cycles:  %llu\n", cycles_load_se1);
-    // printf("LOAD_SE2 Cycles:  %llu\n", cycles_load_se2);
-    // printf("LOAD_PW_L Cycles: %llu\n", cycles_load_pw_last);
     printf("TOTAL LOAD Cycles:%llu\n", cycles_load);
     
     unsigned long long total_compute = real_pw1_cycles + cycles_dw + cycles_gap + real_se1_cycles + real_se2_cycles + cycles_mul + real_pw_last_cycles + cycles_add;

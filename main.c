@@ -12,6 +12,9 @@
 #include "include/mul.h"
 #include "include/add.h"
 
+#define AXI_delay 30 // 30 cycles delay every 256 beats, simulating DMA arbitration/latency
+#define CALC_AXI_CYCLES(beats, max_burst, delay) ( ((delay) * (((beats) + (max_burst) - 1) / (max_burst))) + (beats) )
+
 int PW_C_IN = 96;
 int PW_C_OUT = 384;
 int PARALLEL = 16;
@@ -127,6 +130,7 @@ int main(int argc, char *argv[]){
         update_max(&max_row_ifm, i);
         load_bram(DRAM, i * BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, PWCONV_IFM_BRAM, i);
     }
+    cycles_load_init += CALC_AXI_CYCLES(PW_H_in * PW_W_in * PW_C_IN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
     printf("[LOGS] IFM BRAM Loaded.\n");
     
     // ============== Load PW weight ================
@@ -139,7 +143,7 @@ int main(int argc, char *argv[]){
             update_max(&max_row_pw_w_ping, i);
             load_bram(DRAM, PW_WEIGHT_START_ADDR + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_FILTER_SIZE, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], i);
         }
-
+        cycles_load_init += CALC_AXI_CYCLES(PW_C_IN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
         write_enable_weight = write_enable_weight << 1;
     }
 
@@ -152,6 +156,7 @@ int main(int argc, char *argv[]){
         update_max(&max_row_dw_w, i);
         load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
     }
+    cycles_load_init += CALC_AXI_CYCLES(DW_H_K * DW_W_K * DW_NUM_OF_K / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
     printf("[LOGS] DW Weight BRAM Loaded\n");
 
     // =================== Kich thuoc padding ===============
@@ -173,6 +178,7 @@ int main(int argc, char *argv[]){
             int dram_addr = se_pw_1_start_addr + bram_indx * SE_PW_1_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], row_indx);
         }
+        cycles_load_init += CALC_AXI_CYCLES(se_pw_block_size, 256, AXI_delay);
     }
     printf("[LOGS] SE PW1 loaded\n");
     // ==================== Load SE PW2 =====================
@@ -185,6 +191,7 @@ int main(int argc, char *argv[]){
             int dram_addr = se_pw_2_start_addr + bram_indx * SE_PW_2_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], row_indx);
         }
+        cycles_load_init += CALC_AXI_CYCLES(se_pw_block_size, 256, AXI_delay);
     }
     printf("[LOGS] SE PW2 loaded\n");
     
@@ -199,6 +206,7 @@ int main(int argc, char *argv[]){
             int dram_addr = pw_last_start_addr + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_LAST_CIN;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], ping_start_row + i);
         }
+        cycles_load_init += CALC_AXI_CYCLES(PW_LAST_CIN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
     }
     printf("[LOGS] PW Weight BRAMs Loaded.\n");
 
@@ -260,7 +268,6 @@ int main(int argc, char *argv[]){
             }
             #pragma omp section
             {
-                ptr_cycles_load = &tile_load_cycles;
                 bram_load_done = 0;
                 if(tile < (PW_NUM_OF_FILTER / NUM_OF_PE) - 1){
                     int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
@@ -275,6 +282,7 @@ int main(int argc, char *argv[]){
                             int dram_addr = PW_WEIGHT_START_ADDR + next_tile_offset + bram_indx * PW_FILTER_SIZE + r * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], w_row_indx_to_write + r);
                         }
+                        tile_load_cycles += CALC_AXI_CYCLES(rows_per_bram, 256, AXI_delay);
                     }
                 }
                 bram_load_done = 1;
@@ -400,7 +408,6 @@ int main(int argc, char *argv[]){
             }
             #pragma omp section
             {
-                ptr_cycles_load = &tile_load_cycles;
                 if(chuck_ofm + 1 < SE_PW_1_COUT / NUM_OF_SE_PE){
                     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
                         for(int row = 0; row < (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row++){
@@ -410,6 +417,7 @@ int main(int argc, char *argv[]){
                             int dram_addr = se_pw_1_start_addr + (chuck_ofm + 1) * SE_PW_1_CIN * NUM_OF_SE_BRAM  + bram_indx * SE_PW_1_CIN + row * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], row_start_to_write + row);
                         }
+                        tile_load_cycles += CALC_AXI_CYCLES((SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
                     }
                 }
             }
@@ -457,7 +465,6 @@ int main(int argc, char *argv[]){
             }
             #pragma omp section
             {
-                ptr_cycles_load = &tile_load_cycles;
                 if(row_ofm + 1 < SE_PW_2_COUT / NUM_OF_SE_PE){
                     for(int bram_indx = 0; bram_indx < NUM_OF_SE_BRAM; bram_indx++){
                         for(int row = 0; row < (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row++){
@@ -466,6 +473,7 @@ int main(int argc, char *argv[]){
 
                             int dram_addr = se_pw_2_start_addr + (row_ofm + 1) * SE_PW_2_CIN * NUM_OF_SE_BRAM  + bram_indx * SE_PW_2_CIN + row * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], row_start_to_write + row);
+                            tile_load_cycles += CALC_AXI_CYCLES(1, 256, AXI_delay);
                         }
                     }
                 }
@@ -547,7 +555,6 @@ int main(int argc, char *argv[]){
             }
             #pragma omp section
             {
-                ptr_cycles_load = &tile_load_cycles;
                 if(tile < (PW_LAST_COUT / NUM_OF_PE) - 1){
                     int w_row_indx_to_write = (ping_state == WRITE) ? ping_start_row : pong_start_row;
                     int start_addr_next_tile = pw_last_start_addr + (tile + 1) * NUM_OF_PE * PW_LAST_CIN;
@@ -559,6 +566,7 @@ int main(int argc, char *argv[]){
                             int dram_addr = start_addr_next_tile + bram_indx * PW_LAST_CIN + i * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], w_row_indx_to_write + i);
                         }
+                        tile_load_cycles += CALC_AXI_CYCLES(PW_LAST_CIN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
                     }
                 }
             }
