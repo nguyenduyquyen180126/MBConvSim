@@ -138,7 +138,7 @@ int main(int argc, char *argv[]){
                 int filter_idx = tile * NUM_OF_PE + bram_indx;
                 int dram_addr = PW_WEIGHT_START_ADDR + filter_idx * PW_FILTER_SIZE + i * BRAM_WIDTH_IN_BYTE;
                 int bram_row = tile * rows_per_pw_filter + i;
-                update_max(&max_row_pw_w_ping, bram_row);
+                update_max(&max_row_pw_w, bram_row);
                 load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], bram_row);
             }
         }
@@ -173,7 +173,7 @@ int main(int argc, char *argv[]){
                 int filter_idx = tile * NUM_OF_SE_PE + bram_indx;
                 int dram_addr = se_pw_1_start_addr + filter_idx * SE_PW_1_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
                 int bram_row = tile * se_pw1_rows_per_filter + row_indx;
-                update_max(&max_row_se1_w_ping, bram_row);
+                update_max(&max_row_se1_w, bram_row);
                 load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], bram_row);
             }
         }
@@ -190,7 +190,7 @@ int main(int argc, char *argv[]){
                 int filter_idx = tile * NUM_OF_SE_PE + bram_indx;
                 int dram_addr = se_pw_2_start_addr + filter_idx * SE_PW_2_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
                 int bram_row = tile * se_pw2_rows_per_filter + row_indx;
-                update_max(&max_row_se2_w_ping, bram_row);
+                update_max(&max_row_se2_w, bram_row);
                 load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], bram_row);
             }
         }
@@ -207,7 +207,7 @@ int main(int argc, char *argv[]){
                 int filter_idx = tile * NUM_OF_PE + bram_indx;
                 int dram_addr = pw_last_start_addr + filter_idx * PW_LAST_CIN + i * BRAM_WIDTH_IN_BYTE;
                 int bram_row = tile * pw_last_rows_per_filter + i;
-                update_max(&max_row_pw_last_w_ping, bram_row);
+                update_max(&max_row_pw_last_w, bram_row);
                 load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], bram_row);
             }
         }

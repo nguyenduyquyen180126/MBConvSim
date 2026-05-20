@@ -100,22 +100,22 @@ extern int max_row_pw_last_acc;
 extern int max_row_output;
 
 // Ping-pong weight tracking
-extern int max_row_pw_w_ping;
-extern int max_row_pw_w_pong;
+extern int max_row_pw_w;
+// extern int max_row_pw_w_pong;
 extern int max_row_dw_w;
-extern int max_row_se1_w_ping;
-extern int max_row_se1_w_pong;
-extern int max_row_se2_w_ping;
-extern int max_row_se2_w_pong;
-extern int max_row_pw_last_w_ping;
-extern int max_row_pw_last_w_pong;
+extern int max_row_se1_w;
+// extern int max_row_se1_w_pong;
+extern int max_row_se2_w;
+// extern int max_row_se2_w_pong;
+extern int max_row_pw_last_w;
+// extern int max_row_pw_last_w_pong;
 
 extern unsigned long long cycles_load;
 extern unsigned long long cycles_load_init;
-extern unsigned long long cycles_load_pw1;
-extern unsigned long long cycles_load_se1;
-extern unsigned long long cycles_load_se2;
-extern unsigned long long cycles_load_pw_last;
+// extern unsigned long long cycles_load_pw1;
+// extern unsigned long long cycles_load_se1;
+// extern unsigned long long cycles_load_se2;
+// extern unsigned long long cycles_load_pw_last;
 extern unsigned long long *ptr_cycles_load;
 
 extern unsigned long long cycles_pw1;

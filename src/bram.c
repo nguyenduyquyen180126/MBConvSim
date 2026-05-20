@@ -97,22 +97,14 @@ int max_row_pw_last_acc = 0;
 int max_row_output = 0;
 
 // Ping-pong weight tracking
-int max_row_pw_w_ping = 0;
-int max_row_pw_w_pong = 0;
+int max_row_pw_w = 0;
 int max_row_dw_w = 0;
-int max_row_se1_w_ping = 0;
-int max_row_se1_w_pong = 0;
-int max_row_se2_w_ping = 0;
-int max_row_se2_w_pong = 0;
-int max_row_pw_last_w_ping = 0;
-int max_row_pw_last_w_pong = 0;
+int max_row_se1_w = 0;
+int max_row_se2_w = 0;
+int max_row_pw_last_w = 0;
 
 unsigned long long cycles_load = 0;
 unsigned long long cycles_load_init = 0;
-unsigned long long cycles_load_pw1 = 0;
-unsigned long long cycles_load_se1 = 0;
-unsigned long long cycles_load_se2 = 0;
-unsigned long long cycles_load_pw_last = 0;
 unsigned long long *ptr_cycles_load = &cycles_load_init;
 
 unsigned long long cycles_pw1 = 0;
@@ -125,12 +117,15 @@ unsigned long long cycles_pw_last = 0;
 unsigned long long cycles_add = 0;
 
 void reset_performance_counters() {
-    cycles_load = cycles_load_init = cycles_load_pw1 = cycles_load_se1 = 0;
-    cycles_load_se2 = cycles_load_pw_last = 0;
+    cycles_load = cycles_load_init = 0;
     ptr_cycles_load = &cycles_load_init;
     
     cycles_pw1 = cycles_dw = cycles_gap = 0;
     cycles_se1 = cycles_se2 = cycles_mul = cycles_pw_last = cycles_add = 0;
+
+    max_row_ifm = max_row_pw_acc = max_row_dw_acc = max_row_gap = 0;
+    max_row_se1_acc = max_row_se2_acc = max_row_mul = max_row_pw_last_acc = max_row_output = 0;
+    max_row_pw_w = max_row_dw_w = max_row_se1_w = max_row_se2_w = max_row_pw_last_w = 0;
 }
 
 void update_max(int *max_var, int current_row) {
@@ -164,10 +159,6 @@ void report_performance() {
     
     printf("\n[PERFORMANCE REPORT - LOAD CYCLES]\n");
     printf("LOAD_INIT Cycles: %llu\n", cycles_load_init);
-    printf("LOAD_PW1 Cycles:  %llu\n", cycles_load_pw1);
-    printf("LOAD_SE1 Cycles:  %llu\n", cycles_load_se1);
-    printf("LOAD_SE2 Cycles:  %llu\n", cycles_load_se2);
-    printf("LOAD_PW_L Cycles: %llu\n", cycles_load_pw_last);
     printf("TOTAL LOAD Cycles:%llu\n", cycles_load);
     
     unsigned long long total_compute = cycles_pw1 + cycles_dw + cycles_gap + cycles_se1 + cycles_se2 + cycles_mul + cycles_pw_last + cycles_add;
@@ -180,17 +171,17 @@ void report_performance() {
 void report_bram_usage() {
     printf("\n[BRAM USAGE REPORT - MAX ROWS ACCESSED]\n");
     printf("IFM BRAM:         %d rows\n", max_row_ifm + 1);
-    printf("PW Weight (Ping/Pong): %d / %d rows\n", max_row_pw_w_ping + 1, max_row_pw_w_pong + 1);
+    printf("PW Weight:             %d rows\n", max_row_pw_w + 1);
     printf("PW ACC BRAM:      %d rows\n", max_row_pw_acc + 1);
     printf("DW Weight:             %d rows\n", max_row_dw_w + 1);
     printf("DW ACC BRAM:      %d rows\n", max_row_dw_acc + 1);
     printf("GAP BRAM:         %d rows\n", max_row_gap + 1);
-    printf("SE1 Weight (Ping/Pong):%d / %d rows\n", max_row_se1_w_ping + 1, max_row_se1_w_pong + 1);
+    printf("SE1 Weight:            %d rows\n", max_row_se1_w + 1);
     printf("SE1 ACC BRAM:     %d rows\n", max_row_se1_acc + 1);
-    printf("SE2 Weight (Ping/Pong):%d / %d rows\n", max_row_se2_w_ping + 1, max_row_se2_w_pong + 1);
+    printf("SE2 Weight:            %d rows\n", max_row_se2_w + 1);
     printf("SE2 ACC BRAM:     %d rows\n", max_row_se2_acc + 1);
     printf("MUL BRAM:         %d rows\n", max_row_mul + 1);
-    printf("PW LAST W (Ping/Pong): %d / %d rows\n", max_row_pw_last_w_ping + 1, max_row_pw_last_w_pong + 1);
+    printf("PW LAST Weight:        %d rows\n", max_row_pw_last_w + 1);
     printf("PW LAST ACC BRAM: %d rows\n", max_row_pw_last_acc + 1);
     printf("OUTPUT BRAM:      %d rows\n", max_row_output + 1);
 }
