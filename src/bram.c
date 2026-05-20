@@ -106,6 +106,7 @@ int max_row_pw_last_w = 0;
 unsigned long long cycles_load = 0;
 unsigned long long cycles_load_init = 0;
 unsigned long long *ptr_cycles_load = &cycles_load_init;
+unsigned long long load_bram_call_count = 0;
 
 unsigned long long cycles_pw1 = 0;
 unsigned long long cycles_dw = 0;
@@ -119,6 +120,7 @@ unsigned long long cycles_add = 0;
 void reset_performance_counters() {
     cycles_load = cycles_load_init = 0;
     ptr_cycles_load = &cycles_load_init;
+    load_bram_call_count = 0;
     
     cycles_pw1 = cycles_dw = cycles_gap = 0;
     cycles_se1 = cycles_se2 = cycles_mul = cycles_pw_last = cycles_add = 0;
@@ -137,8 +139,13 @@ int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram
         printf("[ERROR] DMA không truyen đuoc qua 128 bits\n");
         return SYS_INVALID_ARG;
     }
-    // Simple cycle model: 30 cycles latency + 1 cycle per 16-byte transfer
-    unsigned long long c = 30 + 1;
+    // Simple cycle model: 30 cycles latency every 256 calls + 1 cycle per 16-byte transfer
+    unsigned long long c = 1;
+    if (load_bram_call_count % 256 == 0) {
+        c += 30;
+    }
+    load_bram_call_count++;
+
     cycles_load += c;
     if (ptr_cycles_load) *ptr_cycles_load += c;
 

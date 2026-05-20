@@ -110,6 +110,9 @@ extern int max_row_se2_w;
 extern int max_row_pw_last_w;
 // extern int max_row_pw_last_w_pong;
 
+
+extern unsigned long long load_bram_call_count;
+
 extern unsigned long long cycles_load;
 extern unsigned long long cycles_load_init;
 // extern unsigned long long cycles_load_pw1;
