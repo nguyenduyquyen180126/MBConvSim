@@ -299,9 +299,10 @@ if __name__ == "__main__":
         print("\n" + "="*50)
         print("EFFICIENTNETV2-B0 GLOBAL BRAM USAGE SUMMARY")
         print("="*50)
-        for k, v in sorted(global_usage.items()):
+        for k in sorted(global_usage.keys(), key=sort_priority):
             unit = "cycles" if any(x in k.upper() for x in ["CYCLES", "COMPUTE", "EXECUTION"]) else "rows"
-            print(f"{k.ljust(25)}: {v} {unit}")
+            v = global_usage[k]
+            print(f"  {k:<30} : {v:>10} {unit}")
         print("="*50)
         print("\n[ALL TESTS PASSED]")
     else:
