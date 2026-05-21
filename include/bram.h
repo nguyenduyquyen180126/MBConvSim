@@ -113,13 +113,13 @@ extern int max_row_pw_last_w;
 
 extern unsigned long long load_bram_call_count;
 
-extern unsigned long long cycles_load;
-extern unsigned long long cycles_load_init;
-// extern unsigned long long cycles_load_pw1;
-// extern unsigned long long cycles_load_se1;
-// extern unsigned long long cycles_load_se2;
-// extern unsigned long long cycles_load_pw_last;
-extern unsigned long long *ptr_cycles_load;
+extern unsigned long long ifm_load_calls;
+extern unsigned long long pw1_load_calls;
+extern unsigned long long dw_load_calls;
+extern unsigned long long se1_load_calls;
+extern unsigned long long se2_load_calls;
+extern unsigned long long pw_last_load_calls;
+extern unsigned long long *ptr_load_calls;
 
 extern unsigned long long cycles_pw1;
 extern unsigned long long cycles_dw;

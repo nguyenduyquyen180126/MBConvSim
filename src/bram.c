@@ -103,9 +103,13 @@ int max_row_se1_w = 0;
 int max_row_se2_w = 0;
 int max_row_pw_last_w = 0;
 
-unsigned long long cycles_load = 0;
-unsigned long long cycles_load_init = 0;
-unsigned long long *ptr_cycles_load = &cycles_load_init;
+unsigned long long ifm_load_calls;
+unsigned long long pw1_load_calls;
+unsigned long long dw_load_calls;
+unsigned long long se1_load_calls;
+unsigned long long se2_load_calls;
+unsigned long long pw_last_load_calls;
+unsigned long long *ptr_load_calls;
 
 unsigned long long cycles_pw1 = 0;
 unsigned long long cycles_dw = 0;
@@ -116,9 +120,11 @@ unsigned long long cycles_mul = 0;
 unsigned long long cycles_pw_last = 0;
 unsigned long long cycles_add = 0;
 
+static float to_KB(int num_rows) {
+    return (float)(num_rows * 16 * sizeof(int8_t)) / 1024.0;
+}
+
 void reset_performance_counters() {
-    cycles_load = cycles_load_init = 0;
-    ptr_cycles_load = &cycles_load_init;
     
     cycles_pw1 = cycles_dw = cycles_gap = 0;
     cycles_se1 = cycles_se2 = cycles_mul = cycles_pw_last = cycles_add = 0;
@@ -154,32 +160,33 @@ void report_performance() {
     printf("ADD Cycles:       %llu\n", cycles_add);
     
     printf("\n[PERFORMANCE REPORT - LOAD CYCLES]\n");
-    printf("LOAD_INIT Cycles: %llu\n", cycles_load_init);
-    printf("TOTAL LOAD Cycles:%llu\n", cycles_load_init);
+    printf("IFM Load Calls:   %llu\n", ifm_load_calls);
+    printf("PW1 Load Calls:   %llu\n", pw1_load_calls);
+    printf("DW Load Calls:    %llu\n", dw_load_calls);
+    printf("SE1 Load Calls:   %llu\n", se1_load_calls);
+    printf("SE2 Load Calls:   %llu\n", se2_load_calls);
+    printf("PW LAST Load Calls: %llu\n", pw_last_load_calls);
     
-    unsigned long long total_compute = cycles_pw1 + cycles_dw + cycles_gap + cycles_se1 + cycles_se2 + cycles_mul + cycles_pw_last + cycles_add;
-    printf("\nTOTAL COMPUTE:    %llu\n", total_compute);
-    printf("TOTAL EXECUTION:  %llu (Simple sum)\n", total_compute + cycles_load_init);
 }
 
 
 
 void report_bram_usage() {
     printf("\n[BRAM USAGE REPORT - MAX ROWS ACCESSED]\n");
-    printf("IFM BRAM:         %d rows\n", max_row_ifm + 1);
-    printf("PW Weight:             %d rows\n", max_row_pw_w + 1);
-    printf("PW ACC BRAM:      %d rows\n", max_row_pw_acc + 1);
-    printf("DW Weight:             %d rows\n", max_row_dw_w + 1);
-    printf("DW ACC BRAM:      %d rows\n", max_row_dw_acc + 1);
-    printf("GAP BRAM:         %d rows\n", max_row_gap + 1);
-    printf("SE1 Weight:            %d rows\n", max_row_se1_w + 1);
-    printf("SE1 ACC BRAM:     %d rows\n", max_row_se1_acc + 1);
-    printf("SE2 Weight:            %d rows\n", max_row_se2_w + 1);
-    printf("SE2 ACC BRAM:     %d rows\n", max_row_se2_acc + 1);
-    printf("MUL BRAM:         %d rows\n", max_row_mul + 1);
-    printf("PW LAST Weight:        %d rows\n", max_row_pw_last_w + 1);
-    printf("PW LAST ACC BRAM: %d rows\n", max_row_pw_last_acc + 1);
-    printf("OUTPUT BRAM:      %d rows\n", max_row_output + 1);
+    printf("IFM BRAM:         %.2f KB\n", to_KB(max_row_ifm + 1));
+    printf("PW Weight BRAM:             %.2f KB\n", to_KB((max_row_pw_w + 1) * 16));
+    printf("PW ACC BRAM:      %.2f KB\n", to_KB(max_row_pw_acc + 1));
+    printf("DW Weight BRAM:             %.2f KB\n", to_KB((max_row_dw_w + 1) * 16));
+    printf("DW ACC BRAM:      %.2f KB\n", to_KB(max_row_dw_acc + 1));
+    printf("GAP BRAM:         %.2f KB\n", to_KB(max_row_gap + 1));
+    printf("SE1 Weight BRAM:            %.2f KB\n", to_KB((max_row_se1_w + 1) * 4));
+    printf("SE1 ACC BRAM:     %.2f KB\n", to_KB(max_row_se1_acc + 1));
+    printf("SE2 Weight BRAM:            %.2f KB\n", to_KB((max_row_se2_w + 1) * 4));
+    printf("SE2 ACC BRAM:     %.2f KB\n", to_KB(max_row_se2_acc + 1));
+    printf("MUL BRAM:         %.2f KB\n", to_KB(max_row_mul + 1));
+    printf("PW LAST Weight BRAM:        %.2f KB\n", to_KB((max_row_pw_last_w + 1) * 16));
+    printf("PW LAST ACC BRAM: %.2f KB\n", to_KB(max_row_pw_last_acc + 1));
+    printf("OUTPUT BRAM:      %.2f KB\n", to_KB(max_row_output + 1));
 }
 
 void __load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram)[16], int addr_bram){

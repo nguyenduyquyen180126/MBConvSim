@@ -12,8 +12,8 @@
 #include "include/mul.h"
 #include "include/add.h"
 
-int AXI_delay = 30; // 30 cycles delay every 256 calls to load_bram, simulating DMA latency
-#define CALC_AXI_CYCLES(beats, max_burst, delay) ( ((delay) * (((beats) + (max_burst) - 1) / (max_burst))) + (beats) )
+// int AXI_delay = 30; // 30 cycles delay every 256 calls to load_bram, simulating DMA latency
+// #define CALC_AXI_CYCLES(beats, max_burst, delay) ( ((delay) * (((beats) + (max_burst) - 1) / (max_burst))) + (beats) )
 
 int PW_C_IN = 96;
 int PW_C_OUT = 384;
@@ -112,7 +112,6 @@ void parse_args(int argc, char *argv[]) {
 int main(int argc, char *argv[]){
     parse_args(argc, argv);
     reset_performance_counters();
-    ptr_cycles_load = &cycles_load_init;
     omp_set_max_active_levels(2);
     printf("====================================== Bat dau ======================================\n");
     // ===================== 1. Mô phỏng của lớp point wise conv =====================
@@ -130,7 +129,7 @@ int main(int argc, char *argv[]){
         update_max(&max_row_ifm, i);
         load_bram(DRAM, i * BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, PWCONV_IFM_BRAM, i);
     }
-    cycles_load_init += CALC_AXI_CYCLES(PW_H_in * PW_W_in * PW_C_IN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
+    ifm_load_calls += PW_H_in * PW_W_in * PW_C_IN / BRAM_WIDTH_IN_BYTE;
     printf("[LOGS] IFM BRAM Loaded.\n");
     
     // ============== Load PW weight ================
@@ -145,7 +144,7 @@ int main(int argc, char *argv[]){
                 update_max(&max_row_pw_w, bram_row);
                 load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], bram_row);
             }
-            cycles_load_init += CALC_AXI_CYCLES(rows_per_pw_filter, 256, AXI_delay);
+            pw1_load_calls += rows_per_pw_filter;
         }
     }
 
@@ -158,7 +157,7 @@ int main(int argc, char *argv[]){
         update_max(&max_row_dw_w, i);
         load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
     }
-    cycles_load_init += CALC_AXI_CYCLES(DW_H_K * DW_W_K * DW_NUM_OF_K / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
+    dw_load_calls += DW_H_K * DW_W_K * DW_NUM_OF_K / BRAM_WIDTH_IN_BYTE;
     printf("[LOGS] DW Weight BRAM Loaded\n");
 
     // =================== Kich thuoc padding ===============
@@ -183,7 +182,7 @@ int main(int argc, char *argv[]){
                 update_max(&max_row_se1_w, bram_row);
                 load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], bram_row);
             }
-            cycles_load_init += CALC_AXI_CYCLES(se_pw1_rows_per_filter, 256, AXI_delay);
+            se1_load_calls += se_pw1_rows_per_filter;
         }
     }
     printf("[LOGS] SE PW1 loaded\n");
@@ -201,7 +200,7 @@ int main(int argc, char *argv[]){
                 update_max(&max_row_se2_w, bram_row);
                 load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], bram_row);
             }
-            cycles_load_init += CALC_AXI_CYCLES(se_pw2_rows_per_filter, 256, AXI_delay);
+            se2_load_calls += se_pw2_rows_per_filter;
         }
     }
     printf("[LOGS] SE PW2 loaded\n");
@@ -219,7 +218,7 @@ int main(int argc, char *argv[]){
                 update_max(&max_row_pw_last_w, bram_row);
                 load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], bram_row);
             }
-            cycles_load_init += CALC_AXI_CYCLES(pw_last_rows_per_filter, 256, AXI_delay);
+            pw_last_load_calls += pw_last_rows_per_filter;
         }
     }
     printf("[LOGS] PW Weight BRAMs Loaded.\n");

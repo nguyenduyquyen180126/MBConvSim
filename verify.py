@@ -111,17 +111,17 @@ def run_test(config):
             val_str = parts[1].strip().split(' ')[0]
             
             # BRAM usage parsing
-            if 'rows' in line:
+            if 'BRAM' in line:
                 try:
-                    usage[key] = int(val_str)
+                    usage[key] = float(val_str)
                 except:
                     if '/' in parts[1]:
-                        vals = parts[1].replace('rows','').strip().split('/')
+                        vals = parts[1].replace('KB','').strip().split('/')
                         usage[f"{key} Ping"] = int(vals[0].strip())
                         usage[f"{key} Pong"] = int(vals[1].strip())
             
             # Cycle parsing
-            elif 'Cycles' in line or 'TOTAL' in line or 'COMPUTE' in line:
+            elif 'Calls' in line or 'Cycles' in line or 'Execution' in line:
                 try:
                     usage[key] = int(val_str)
                 except:
@@ -255,7 +255,8 @@ if __name__ == "__main__":
             
             # Layer mapping (Sequence: INIT -> PW1 -> DW -> GAP -> SE1 -> SE2 -> MUL -> PW_LAST -> ADD -> TOTAL)
             layers = [
-                ("INIT", 1), ("IFM", 1),
+                ("BRAM", 0),
+                ("IFM", 1),
                 ("PW1", 2), ("PW ", 2),
                 ("DW", 3),
                 ("GAP", 4),
@@ -277,11 +278,9 @@ if __name__ == "__main__":
             
             # Metric sub-ordering: Load -> Cycles -> Weight -> Acc -> BRAM
             metric_idx = 5
-            if "LOAD" in k_upper: metric_idx = 0
-            elif any(x in k_upper for x in ["CYCLES", "COMPUTE", "EXECUTION"]): metric_idx = 1
-            elif "WEIGHT" in k_upper or " W " in k_upper: metric_idx = 2
-            elif "ACC" in k_upper: metric_idx = 3
-            elif "BRAM" in k_upper: metric_idx = 4
+            if "CALLS" in k_upper: metric_idx = 0
+            elif "WEIGHT" in k_upper or " W " in k_upper: metric_idx = 1
+            elif "ACC" in k_upper: metric_idx = 2
             
             return (layer_idx, metric_idx, key)
 
@@ -298,7 +297,7 @@ if __name__ == "__main__":
         print("EFFICIENTNETV2-B0 GLOBAL BRAM USAGE SUMMARY")
         print("="*50)
         for k in sorted(global_usage.keys(), key=sort_priority):
-            unit = "cycles" if any(x in k.upper() for x in ["CYCLES", "COMPUTE", "EXECUTION"]) else "rows"
+            unit = "calls" if any(x in k.upper() for x in ["CALLS", "CYCLES"]) else "KB"
             v = global_usage[k]
             print(f"  {k:<30} : {v:>10} {unit}")
         print("="*50)
