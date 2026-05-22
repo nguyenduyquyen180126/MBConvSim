@@ -107,39 +107,39 @@ int max_row_se2_w_pong = 0;
 int max_row_pw_last_w_ping = 0;
 int max_row_pw_last_w_pong = 0;
 
-unsigned long long cycles_load = 0;
-unsigned long long cycles_load_init = 0;
-// unsigned long long cycles_load_pw1 = 0;
-// unsigned long long cycles_load_se1 = 0;
-// unsigned long long cycles_load_se2 = 0;
-// unsigned long long cycles_load_pw_last = 0;
-unsigned long long *ptr_cycles_load = &cycles_load_init;
+unsigned long long ifm_load_calls = 0;
+unsigned long long pw1_pre_load_calls = 0;
+unsigned long long dw_load_calls = 0;
+unsigned long long se1_pre_load_calls = 0;
+unsigned long long se2_pre_load_calls = 0;
+unsigned long long pw_last_pre_load_calls = 0;
 
 // unsigned long long cycles_pw1 = 0;
-unsigned long long real_pw1_cycles = 0;
-unsigned long long hidden_pw1_cycles = 0;
+unsigned long long pw1_cycles = 0;
+unsigned long long pw1_load_calls = 0;
 unsigned long long cycles_dw = 0;
 unsigned long long cycles_gap = 0;
 // unsigned long long cycles_se1 = 0;
 // unsigned long long cycles_se2 = 0;
-unsigned long long real_se1_cycles = 0;
-unsigned long long hidden_se1_cycles = 0;
-unsigned long long real_se2_cycles = 0;
-unsigned long long hidden_se2_cycles = 0;
+unsigned long long se1_cycles = 0;
+unsigned long long se1_load_calls = 0;
+unsigned long long se2_cycles = 0;
+unsigned long long se2_load_calls = 0;
 unsigned long long cycles_mul = 0;
 // unsigned long long cycles_pw_last = 0;
-unsigned long long real_pw_last_cycles = 0;
-unsigned long long hidden_pw_last_cycles = 0;
+unsigned long long pw_last_cycles = 0;
+unsigned long long pw_last_load_call = 0;
 unsigned long long cycles_add = 0;
 
+static float toKB(int num_of_row) {
+    return (num_of_row * 16 * sizeof(int8_t)) / 1024.0f;
+}
+
 void reset_performance_counters() {
-    cycles_load = cycles_load_init = 0;
-    ptr_cycles_load = &cycles_load_init;
-    
-    real_pw1_cycles = hidden_pw1_cycles = 0;
+    pw1_cycles = pw1_load_calls = 0;
     cycles_dw = cycles_gap = 0;
-    real_se1_cycles = hidden_se1_cycles = 0;
-    real_se2_cycles = hidden_se2_cycles = 0;
+    se1_cycles = se1_load_calls = 0;
+    se2_cycles = se2_load_calls = 0;
     cycles_mul = cycles_add = 0;
 }
 
@@ -158,48 +158,46 @@ int load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram
 }
 
 void report_performance() {
-    cycles_load = cycles_load_init;
     printf("\n[PERFORMANCE REPORT - COMPUTE CYCLES]\n");
-    printf("PW1 Cycles:       %llu\n", real_pw1_cycles);
-    printf("PW1 Hidden Cycles: %llu\n", hidden_pw1_cycles);
+    printf("PW1 Cycles:       %llu\n", pw1_cycles);
+    printf("PW1 load calls: %llu\n", pw1_load_calls);
     printf("DW Cycles:        %llu\n", cycles_dw);
     printf("GAP Cycles:       %llu\n", cycles_gap);
-    printf("SE1 Cycles:       %llu\n", real_se1_cycles);
-    printf("SE1 Hidden Cycles: %llu\n", hidden_se1_cycles);
-    printf("SE2 Cycles:       %llu\n", real_se2_cycles);
-    printf("SE2 Hidden Cycles: %llu\n", hidden_se2_cycles);
+    printf("SE1 Cycles:       %llu\n", se1_cycles);
+    printf("SE1 Hidden Cycles: %llu\n", se1_load_calls);
+    printf("SE2 Cycles:       %llu\n", se2_cycles);
+    printf("SE2 Hidden Cycles: %llu\n", se2_load_calls);
     printf("MUL Cycles:       %llu\n", cycles_mul);
-    printf("PW_LAST Cycles:   %llu\n", real_pw_last_cycles);
-    printf("PW_LAST Hidden Cycles: %llu\n", hidden_pw_last_cycles);
+    printf("PW_LAST Cycles:   %llu\n", pw_last_cycles);
+    printf("PW_LAST Hidden Cycles: %llu\n", pw_last_load_call);
     printf("ADD Cycles:       %llu\n", cycles_add);
     
     printf("\n[PERFORMANCE REPORT - LOAD CYCLES]\n");
-    printf("LOAD_INIT Cycles: %llu\n", cycles_load_init);
-    printf("TOTAL LOAD Cycles:%llu\n", cycles_load);
-    
-    unsigned long long total_compute = real_pw1_cycles + cycles_dw + cycles_gap + real_se1_cycles + real_se2_cycles + cycles_mul + real_pw_last_cycles + cycles_add;
-    printf("\nTOTAL COMPUTE:    %llu\n", total_compute);
-    printf("TOTAL EXECUTION:  %llu (Simple sum)\n", total_compute + cycles_load);
+    printf("IFM Load Calls: %llu\n", ifm_load_calls);
+    printf("PW1 Pre-load Calls: %llu\n", pw1_pre_load_calls);
+    printf("SE1 Pre-load Calls: %llu\n", se1_pre_load_calls);
+    printf("SE2 Pre-load Calls: %llu\n", se2_pre_load_calls);
+    printf("PW_LAST Pre-load Calls: %llu\n", pw_last_pre_load_calls);
 }
 
 
 
 void report_bram_usage() {
     printf("\n[BRAM USAGE REPORT - MAX ROWS ACCESSED]\n");
-    printf("IFM BRAM:         %d rows\n", max_row_ifm + 1);
-    printf("PW Weight (Ping/Pong): %d / %d rows\n", max_row_pw_w_ping + 1, max_row_pw_w_pong + 1);
-    printf("PW ACC BRAM:      %d rows\n", max_row_pw_acc + 1);
-    printf("DW Weight:             %d rows\n", max_row_dw_w + 1);
-    printf("DW ACC BRAM:      %d rows\n", max_row_dw_acc + 1);
-    printf("GAP BRAM:         %d rows\n", max_row_gap + 1);
-    printf("SE1 Weight (Ping/Pong):%d / %d rows\n", max_row_se1_w_ping + 1, max_row_se1_w_pong + 1);
-    printf("SE1 ACC BRAM:     %d rows\n", max_row_se1_acc + 1);
-    printf("SE2 Weight (Ping/Pong):%d / %d rows\n", max_row_se2_w_ping + 1, max_row_se2_w_pong + 1);
-    printf("SE2 ACC BRAM:     %d rows\n", max_row_se2_acc + 1);
-    printf("MUL BRAM:         %d rows\n", max_row_mul + 1);
-    printf("PW LAST W (Ping/Pong): %d / %d rows\n", max_row_pw_last_w_ping + 1, max_row_pw_last_w_pong + 1);
-    printf("PW LAST ACC BRAM: %d rows\n", max_row_pw_last_acc + 1);
-    printf("OUTPUT BRAM:      %d rows\n", max_row_output + 1);
+    printf("IFM BRAM:         %.2f rows\n",  toKB(max_row_ifm + 1));
+    printf("PW Weight (Ping/Pong) BRAM: %.2f/%.2f KB\n", toKB(max_row_pw_w_ping + 1) * 16, toKB(max_row_pw_w_pong + 1) * 16);
+    printf("PW ACC BRAM:      %.2f KB\n", toKB(max_row_pw_acc + 1));
+    printf("DW Weight BRAM:             %.2f KB\n", toKB(max_row_dw_w + 1));
+    printf("DW ACC BRAM:      %.2f KB\n", toKB(max_row_dw_acc + 1));
+    printf("GAP BRAM:         %.2f KB\n", toKB(max_row_gap + 1));
+    printf("SE1 Weight (Ping/Pong) BRAM: %.2f/%.2f KB\n", toKB(max_row_se1_w_ping + 1) * 16, toKB(max_row_se1_w_pong + 1) * 16);
+    printf("SE1 ACC BRAM:     %.2f KB\n", toKB(max_row_se1_acc + 1));
+    printf("SE2 Weight (Ping/Pong) BRAM: %.2f/%.2f KB\n", toKB(max_row_se2_w_ping + 1) * 16, toKB(max_row_se2_w_pong + 1) * 16);
+    printf("SE2 ACC BRAM:     %.2f KB\n", toKB(max_row_se2_acc + 1));
+    printf("MUL BRAM:         %.2f KB\n", toKB(max_row_mul + 1));
+    printf("PW LAST W (Ping/Pong) BRAM: %.2f/%.2f KB\n", toKB(max_row_pw_last_w_ping + 1) * 16, toKB(max_row_pw_last_w_pong + 1) * 16);
+    printf("PW LAST ACC BRAM: %.2f KB\n", toKB(max_row_pw_last_acc + 1));
+    printf("OUTPUT BRAM:      %.2f KB\n", toKB(max_row_output + 1));
 }
 
 void __load_bram(int8_t *dram, int addr_dram, int trans_size_in_byte, int8_t (*bram)[16], int addr_bram){

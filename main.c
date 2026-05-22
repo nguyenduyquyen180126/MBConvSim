@@ -112,7 +112,6 @@ void parse_args(int argc, char *argv[]) {
 int main(int argc, char *argv[]){
     parse_args(argc, argv);
     reset_performance_counters();
-    ptr_cycles_load = &cycles_load_init;
     omp_set_max_active_levels(2);
     printf("====================================== Bat dau ======================================\n");
     // ===================== 1. Mô phỏng của lớp point wise conv =====================
@@ -129,8 +128,8 @@ int main(int argc, char *argv[]){
     for(int i = 0; i < PW_H_in * PW_W_in * PW_C_IN / BRAM_WIDTH_IN_BYTE; i++){
         update_max(&max_row_ifm, i);
         load_bram(DRAM, i * BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, PWCONV_IFM_BRAM, i);
+        ifm_load_calls++;
     }
-    cycles_load_init += CALC_AXI_CYCLES(PW_H_in * PW_W_in * PW_C_IN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
     printf("[LOGS] IFM BRAM Loaded.\n");
     
     // ============== Load PW weight ================
@@ -143,7 +142,7 @@ int main(int argc, char *argv[]){
             update_max(&max_row_pw_w_ping, i);
             load_bram(DRAM, PW_WEIGHT_START_ADDR + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_FILTER_SIZE, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], i);
         }
-        cycles_load_init += CALC_AXI_CYCLES(PW_C_IN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
+        pw1_pre_load_calls += PW_C_IN / BRAM_WIDTH_IN_BYTE;
         write_enable_weight = write_enable_weight << 1;
     }
 
@@ -156,7 +155,7 @@ int main(int argc, char *argv[]){
         update_max(&max_row_dw_w, i);
         load_bram(DRAM, dw_start_addr + i*BRAM_WIDTH_IN_BYTE, BRAM_WIDTH_IN_BYTE, DW_W_BRAM, i);
     }
-    cycles_load_init += CALC_AXI_CYCLES(DW_H_K * DW_W_K * DW_NUM_OF_K / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
+    dw_load_calls += DW_H_K * DW_W_K * DW_NUM_OF_K / BRAM_WIDTH_IN_BYTE;
     printf("[LOGS] DW Weight BRAM Loaded\n");
 
     // =================== Kich thuoc padding ===============
@@ -178,7 +177,7 @@ int main(int argc, char *argv[]){
             int dram_addr = se_pw_1_start_addr + bram_indx * SE_PW_1_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], row_indx);
         }
-        cycles_load_init += CALC_AXI_CYCLES(se_pw_block_size, 256, AXI_delay);
+        se1_pre_load_calls += se_pw_block_size;
     }
     printf("[LOGS] SE PW1 loaded\n");
     // ==================== Load SE PW2 =====================
@@ -191,7 +190,7 @@ int main(int argc, char *argv[]){
             int dram_addr = se_pw_2_start_addr + bram_indx * SE_PW_2_CIN + row_indx * BRAM_WIDTH_IN_BYTE;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], row_indx);
         }
-        cycles_load_init += CALC_AXI_CYCLES(se_pw_block_size, 256, AXI_delay);
+        se2_pre_load_calls += se_pw_block_size;
     }
     printf("[LOGS] SE PW2 loaded\n");
     
@@ -206,7 +205,7 @@ int main(int argc, char *argv[]){
             int dram_addr = pw_last_start_addr + i * BRAM_WIDTH_IN_BYTE + bram_indx * PW_LAST_CIN;
             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], ping_start_row + i);
         }
-        cycles_load_init += CALC_AXI_CYCLES(PW_LAST_CIN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
+        pw_last_pre_load_calls += PW_LAST_CIN / BRAM_WIDTH_IN_BYTE;
     }
     printf("[LOGS] PW Weight BRAMs Loaded.\n");
 
@@ -219,8 +218,6 @@ int main(int argc, char *argv[]){
 
     printf("[LOGS] Starting PW computation loops...\n");
     for(int tile = 0; tile < PW_NUM_OF_FILTER / NUM_OF_PE; tile++){
-        unsigned long long tile_load_cycles = 0;
-        unsigned long long tile_compute_cycles = 0;
         while(compute_done == 0 || bram_load_done == 0){
             usleep(1);
         }
@@ -238,7 +235,7 @@ int main(int argc, char *argv[]){
                         
                         for(int i = 0; i < PW_FILTER_SIZE / NUM_OF_PE; i++){
                             #pragma omp atomic update
-                            tile_compute_cycles++;
+                            pw1_cycles++;
                             pw_pe_compute(&pw_pe_array[0], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W0_BRAM, w_row_indx + i);
                             pw_pe_compute(&pw_pe_array[1], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W1_BRAM, w_row_indx + i);
                             pw_pe_compute(&pw_pe_array[2], PWCONV_IFM_BRAM, ifm_row_indx + i, PWCONV_W2_BRAM, w_row_indx + i);
@@ -281,19 +278,12 @@ int main(int argc, char *argv[]){
 
                             int dram_addr = PW_WEIGHT_START_ADDR + next_tile_offset + bram_indx * PW_FILTER_SIZE + r * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pwconv_w_brams[bram_indx], w_row_indx_to_write + r);
+                            pw1_load_calls++;                   
                         }
-                        tile_load_cycles += CALC_AXI_CYCLES(rows_per_bram, 256, AXI_delay);
                     }
                 }
                 bram_load_done = 1;
             }
-        }
-        if(tile_compute_cycles > tile_load_cycles){
-            real_pw1_cycles += tile_compute_cycles;
-            hidden_pw1_cycles += tile_load_cycles;
-        } else {
-            real_pw1_cycles += tile_load_cycles;
-            hidden_pw1_cycles += tile_compute_cycles;
         }
         ping_state = 1 - ping_state;
         pong_state = 1 - pong_state;
@@ -399,7 +389,7 @@ int main(int argc, char *argv[]){
             #pragma omp section
             {
                 for(int row_ifm = 0; row_ifm < (SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row_ifm++){
-                    tile_compute_cycles++;
+                    se1_cycles++;
                     pw_pe_compute(&se_pw_pe_1_arr[0], GAP_BRAM, row_ifm, SE_PW_1_W1_BRAM, row_start_to_read + row_ifm);
                     pw_pe_compute(&se_pw_pe_1_arr[1], GAP_BRAM, row_ifm, SE_PW_1_W2_BRAM, row_start_to_read + row_ifm);
                     pw_pe_compute(&se_pw_pe_1_arr[2], GAP_BRAM, row_ifm, SE_PW_1_W3_BRAM, row_start_to_read + row_ifm);
@@ -416,19 +406,11 @@ int main(int argc, char *argv[]){
 
                             int dram_addr = se_pw_1_start_addr + (chuck_ofm + 1) * SE_PW_1_CIN * NUM_OF_SE_BRAM  + bram_indx * SE_PW_1_CIN + row * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_1_w_brams[bram_indx], row_start_to_write + row);
+                            se1_load_calls++;
                         }
-                        tile_load_cycles += CALC_AXI_CYCLES((SE_PW_1_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
                     }
                 }
             }
-        }
-        if(tile_compute_cycles > tile_load_cycles) {
-            real_se1_cycles += tile_compute_cycles;
-            hidden_se1_cycles += tile_load_cycles;
-        } 
-        else {
-            real_se1_cycles += tile_load_cycles;
-            hidden_se1_cycles += tile_compute_cycles;
         }
         se_pw_store(se_pw_pe_1_arr, SE_PW_1_ACC_BRAM, chuck_ofm * 4);
         ping_state = 1 - ping_state;
@@ -455,7 +437,7 @@ int main(int argc, char *argv[]){
             #pragma omp section
             {
                 for(int row_ifm = 0; row_ifm < (SE_PW_2_CIN + BRAM_WIDTH_IN_BYTE - 1) / BRAM_WIDTH_IN_BYTE; row_ifm++){
-                    tile_compute_cycles++;
+                    se2_cycles++;
                     int8_t *ifm_row = SE_PW_1_ACC_BRAM[row_ifm];
                     pw_pe_compute(&se_pw_pe_2_arr[0], (int8_t (*)[16])ifm_row, 0, SE_PW_2_W1_BRAM, row_start_to_read + row_ifm);
                     pw_pe_compute(&se_pw_pe_2_arr[1], (int8_t (*)[16])ifm_row, 0, SE_PW_2_W2_BRAM, row_start_to_read + row_ifm);
@@ -473,19 +455,11 @@ int main(int argc, char *argv[]){
 
                             int dram_addr = se_pw_2_start_addr + (row_ofm + 1) * SE_PW_2_CIN * NUM_OF_SE_BRAM  + bram_indx * SE_PW_2_CIN + row * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, se_pw_2_w_brams[bram_indx], row_start_to_write + row);
-                            tile_load_cycles += CALC_AXI_CYCLES(1, 256, AXI_delay);
+                            se2_load_calls++;
                         }
                     }
                 }
             }
-        }
-        if(tile_compute_cycles > tile_load_cycles) {
-            real_se2_cycles += tile_compute_cycles;
-            hidden_se2_cycles += tile_load_cycles;
-        } 
-        else {
-            real_se2_cycles += tile_load_cycles;
-            hidden_se2_cycles += tile_compute_cycles;
         }
         se_pw_store(se_pw_pe_2_arr, SE_PW_2_ACC_BRAM, row_ofm * 4);
         ping_state = 1 - ping_state;
@@ -515,8 +489,6 @@ int main(int argc, char *argv[]){
     ping_state = READ;
     pong_state = WRITE;
     for(int tile = 0; tile < PW_LAST_COUT / NUM_OF_PE; tile++){
-        unsigned long long tile_load_cycles = 0;
-        unsigned long long tile_compute_cycles = 0;
         #pragma omp parallel sections
         {
             #pragma omp section
@@ -528,7 +500,7 @@ int main(int argc, char *argv[]){
                         int ifm_row_indx = (ho * PW_LAST_W + wo) * row_needed_for_one_pixel_depth;
                         int w_row_indx = (ping_state == READ) ? ping_start_row : pong_start_row;
                         for(int i = 0; i < PW_LAST_CIN / BRAM_WIDTH_IN_BYTE; i++){
-                            tile_compute_cycles++;
+                            pw_last_cycles++;
                             int8_t *ifm = MUL_BRAM[ifm_row_indx + i];
                             pw_pe_compute(&pw_last_pe_arr[0], (int8_t (*)[16])ifm, 0, PW_LAST_W0_BRAM, w_row_indx + i);
                             pw_pe_compute(&pw_last_pe_arr[1], (int8_t (*)[16])ifm, 0, PW_LAST_W1_BRAM, w_row_indx + i);
@@ -565,19 +537,11 @@ int main(int argc, char *argv[]){
 
                             int dram_addr = start_addr_next_tile + bram_indx * PW_LAST_CIN + i * BRAM_WIDTH_IN_BYTE;
                             load_bram(DRAM, dram_addr, BRAM_WIDTH_IN_BYTE, pw_last_w_brams[bram_indx], w_row_indx_to_write + i);
+                            pw_last_load_call++;
                         }
-                        tile_load_cycles += CALC_AXI_CYCLES(PW_LAST_CIN / BRAM_WIDTH_IN_BYTE, 256, AXI_delay);
                     }
                 }
             }
-        }
-        if(tile_compute_cycles > tile_load_cycles) {
-            real_pw_last_cycles += tile_compute_cycles;
-            hidden_pw_last_cycles += tile_load_cycles;
-        } 
-        else {
-            real_pw_last_cycles += tile_load_cycles;
-            hidden_pw_last_cycles += tile_compute_cycles;
         }
         ping_state = 1 - ping_state;
         pong_state = 1 - pong_state;
